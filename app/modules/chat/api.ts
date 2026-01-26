@@ -5,7 +5,7 @@ import { db } from '../../core/db';
 import { messages } from './schema';
 import { users } from '../../core/auth/schema';
 import { eq, and } from 'drizzle-orm';
-import { parseCookies } from 'hono/cookie';
+import { getCookie } from 'hono/cookie';
 import { sessions } from '../../core/auth/schema';
 
 // Wir definieren den Context für den WebSocket (User-Daten)
@@ -28,9 +28,8 @@ app.get(
     return {
       async onOpen(event, ws) {
         // 1. Auth Check
-        const cookieHeader = c.req.header('Cookie') || '';
-        const cookies = parseCookies({ header: () => cookieHeader }); // Hono Helper nutzen
-        const sessionId = cookies['auth_session'];
+        // getCookie holt bei Hono automatisch aus dem Context (c)
+        const sessionId = getCookie(c, 'auth_session');
 
         if (!sessionId) {
           ws.close(1008, 'Unauthorized: No Session');
@@ -56,12 +55,14 @@ app.get(
 
         // 3. User Context speichern (in ws.data)
         // Das ermöglicht uns Zugriff auf Userdaten im onMessage Handler
+        // @ts-expect-error - Bun native property
         ws.data = { userId: session.userId, username: session.username };
 
         // 4. Raum-Abo
         const url = new URL(c.req.url);
         const room = url.searchParams.get('room') || 'general';
 
+        // @ts-expect-error - Bun native method
         ws.subscribe(room);
         console.log(`WS: ${session.username} connected to ${room}`);
       },
@@ -74,8 +75,10 @@ app.get(
           const room = payload.room || 'general';
           const content = payload.content;
 
+          // @ts-expect-error - Bun native property
           if (!content || !ws.data) return;
 
+          // @ts-expect-error - Bun native property
           const { userId, username } = ws.data;
 
           // Broadcast via Bun Native Pub/Sub
@@ -88,7 +91,11 @@ app.get(
             createdAt: new Date().toISOString()
           };
 
+          // @ts-expect-error - Bun native method
           ws.publish(room, JSON.stringify(msgPayload));
+
+          // Echo an Sender (da publish nur an ANDERE subscribers geht)
+          ws.send(JSON.stringify(msgPayload));
 
           // Asynchrones Persistieren (Feuer & Vergessen für Performance)
           // Fehler hier sollten den Chat-Flow nicht blockieren

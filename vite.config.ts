@@ -112,6 +112,13 @@ export default defineConfig(({ mode }) => {
         client: {
           input: ['./app/styles.css'],
         },
+        island: {
+          include: [
+            'app/core/**/island.tsx',
+            'app/modules/**/islands/*.tsx',
+            'app/islands/*.tsx' // Legacy/Fallback
+          ],
+        },
       }),
       ssg({ entry }),
       tailwindcss(),

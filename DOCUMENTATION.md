@@ -144,6 +144,8 @@ domain.com {
     encode zstd gzip
 
     # 2. Hard Rate Limiting (Layer 7 DDoS Schutz)
+    # WARNUNG: Dies ist ein Basisschutz, keine WAF.
+    # Es schützt nicht vor Slowloris oder App-Level-Abuse (z.B. Spam).
     rate_limit {
         zone lean_vps_limit {
             key {remote_host}
@@ -157,7 +159,9 @@ domain.com {
 ```
 
 ### 3.2 Systemd Service
-Die Anwendung läuft als einzelnes Binary.
+Die Anwendung läuft als einzelnes Binary. Das ist extrem ressourcenschonend, bedeutet aber:
+*   **Kein Zero-Downtime Deployment:** Bei Updates stoppt der Server kurz.
+*   **Availability > Simplicity?** Wenn du 99.999% Uptime brauchst, ist dies nicht dein Stack. Nutze Docker Swarm/K8s (aber nicht mit 512MB RAM).
 
 ```ini
 # /etc/systemd/system/lean-app.service
@@ -181,7 +185,9 @@ Um ein neues Feature hinzuzufügen (z.B. "Blog"):
 5.  **API mounten:** Füge `app.route('/api/blog', blog)` zu `app/api-server.ts` hinzu.
 6.  **UI entwickeln:** Erstelle Islands in `app/modules/blog/islands/`.
 
-**Einschränkung:** Module DÜRFEN NICHT direkt voneinander importieren. Nutze die Datenbank oder einen Event Bus (`app/core/events`) zur Entkopplung.
+**Einschränkung:** Module DÜRFEN KEINE Logik voneinander importieren (um zyklische Abhängigkeiten zu vermeiden).
+*   **Ausnahme:** `schema.ts` Imports sind erlaubt (Read-Only Type-Safety).
+*   **Risiko:** Wenn Module implizit voneinander abhängen (z.B. Task braucht User-ID), wird die DB zum "Hidden God Object". Dokumentiere Abhängigkeiten explizit!
 
 ---
 
@@ -198,6 +204,7 @@ Wir haben uns für Bun's `server.publish()` (Native Pub/Sub) statt Standard JS W
 **A:** Ja, für den Build-Prozess.
 *   **Problem:** Vite läuft während des SSG-Builds in Node.js. `bun:sqlite` ist Bun-exklusiv und lässt Node abstürzen.
 *   **Lösung:** Der Proxy in `app/core/db/index.ts` erkennt die Umgebung und tauscht die echte DB gegen ein Dummy-Objekt aus.
+*   **Skalierung:** SQLite WAL Modus skaliert gut, aber ist **nicht** für High-Auth-Throughput (>100 gleichzeitige Writes) gemacht. Für diesen Use-Case ist das Framework nicht gedacht.
 
 ### Sicherheit
 *   **Auth:** Argon2id (32MB RAM Cost).

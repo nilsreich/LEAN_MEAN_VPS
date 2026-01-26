@@ -7,33 +7,39 @@
  * Hilfsfunktionen zum Hashen und Verifizieren von Passwörtern.
  *
  * WIE:
- * Nutzt `Bun.password`, welches intern Argon2id verwendet (der aktuelle Goldstandard).
+ * Nutzt `Bun.password` (Argon2id) geschützt durch eine `p-limit` Queue.
  *
  * WARUM:
- * Passwörter dürfen niemals im Klartext gespeichert werden. Argon2id ist resistent
- * gegen GPU-Brute-Force Angriffe.
+ * Argon2id mit 32MB Memory-Cost ist sicher, aber speicherintensiv.
+ * Auf einem 512MB VPS würden 10-15 parallele Logins (15 * 32MB = 480MB)
+ * zum OOM-Crash führen. Die Queue limitiert dies auf 2 gleichzeitige Prozesse.
  *
- * @version 2.0.0
+ * @version 2.1.0
  * ============================================================================
  */
+
+import pLimit from 'p-limit';
+
+// Globaler Limiter: Max 2 parallele Hashing-Operationen (64MB RAM Nutzung)
+const limit = pLimit(2);
 
 /**
  * Erstellt einen sicheren Hash.
  * Optimiert für einen 512MB RAM VPS:
- * Wir nutzen Argon2id mit 32MB Memory-Cost. Das ist sicher gegen GPUs,
- * verhindert aber OOM-Abstürze bei parallelen Logins.
+ * Wir nutzen Argon2id mit 32MB Memory-Cost.
  */
 export async function hashPassword(password: string): Promise<string> {
-  return Bun.password.hash(password, {
+  return limit(() => Bun.password.hash(password, {
     algorithm: 'argon2id',
     memoryCost: 32768, // 32MB (Sicher & RAM-schonend für 512MB VPS)
     timeCost: 3, // 3 Iterationen
-  });
+  }));
 }
 
 /**
- * Überprüft ein Passwort gegen einen Hash
+ * Überprüft ein Passwort gegen einen Hash.
+ * Ebenfalls limitiert, da verify genauso viel RAM braucht wie hash.
  */
 export async function verifyPassword(password: string, hash: string): Promise<boolean> {
-  return Bun.password.verify(password, hash);
+  return limit(() => Bun.password.verify(password, hash));
 }

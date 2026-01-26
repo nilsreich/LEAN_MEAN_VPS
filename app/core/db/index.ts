@@ -40,13 +40,30 @@ let dbInstance: DbType | null = null;
 /**
  * Erstellt einen Proxy, der DB-Aufrufe während des Build-Vorgangs abfängt.
  * Gibt 'undefined' für Promises zurück, um Fehlinterpretationen zu vermeiden.
+ *
+ * SICHERHEIT: Gibt Warnungen aus, wenn während des Builds auf die DB zugegriffen wird.
  */
 function createBuildProxy(): DbType {
-  const proxy = new Proxy(() => proxy, {
+  // biome-ignore lint/suspicious/noExplicitAny: Proxy mock
+  const proxy: any = new Proxy(() => proxy, {
     get: (_, prop) => {
+      // Promise-Handling für await
       if (prop === 'then') return (res: (v: unknown) => void) => res(undefined);
+
+      // Warnung bei potentiell gefährlichen Zugriffen während des Builds
+      // Read-Operationen (query, select) sind oft okay (z.B. für Static Paths),
+      // aber Write-Operationen (insert, update, delete) sollten nie im Build passieren.
+      const dangerousOps = ['insert', 'update', 'delete', 'run', 'execute'];
+      if (typeof prop === 'string' && dangerousOps.includes(prop)) {
+        console.warn(`[WARN] Build-Time DB Write Attempt: db.${prop}() called! This will be ignored but indicates logic leak.`);
+      }
+
       return proxy;
     },
+    apply: (_, __, args) => {
+      // Falls der Proxy als Funktion aufgerufen wird
+      return proxy;
+    }
   });
   return proxy as unknown as DbType;
 }
