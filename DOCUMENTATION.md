@@ -1,95 +1,144 @@
-# 📖 LEAN MEAN VPS - Umfassende Dokumentation
+# 📘 LEAN MEAN VPS - Framework Dokumentation (v2.0)
 
-Willkommen in der Dokumentation des **LEAN MEAN VPS** Templates (Edition 2026). Dieses Dokument bietet einen tiefen Einblick in die Architektur, Entscheidungsgrundlagen und Nutzung des Frameworks.
-
----
-
-## 🎯 Vision & Philosophie
-
-Das Ziel dieses Templates ist es, eine **Fullstack-Entwicklungserfahrung** zu bieten, die auf minimalistischster Hardware (z.B. ein 5 Euro/Monat VPS mit 512MB RAM) eine exzellente Performance und Sicherheit liefert.
-
-### Kernprinzipien:
-1.  **Zero-Bloat**: Jede hinzugefügte Bibliothek muss ihren Platz im 512MB RAM Limit rechtfertigen.
-2.  **Native Power**: Bevorzugung von Bun-nativen APIs (Hashing, SQLite, File I/O).
-3.  **Modern UI**: Nutzung von TailwindCSS 4 (OKLCH, CSS-Variablen) für maximale Design-Flexibilität bei minimalem CSS-Footprint.
-4.  **Security First**: Keine Kompromisse bei der Sicherheit (Argon2id, Session-DB, CSRF, HttpOnly Cookies).
+Ein Walkthrough für Entwickler: Architektur, Funktionsweise und Deployment.
 
 ---
 
-## 🏗️ Architektur-Übersicht
+## 🏗️ Architektur & Funktionsfluss
 
-Das Framework basiert auf **HonoX**, einem modernem Framework für Hono, das eine "Islands-Architektur" nutzt.
+Das Framework basiert auf dem **Vertical Slice** Prinzip mit einer strikten Trennung zwischen **Core** (Infrastruktur) und **Modules** (Features).
 
-### 1. Dateisystem-Struktur
-- `app/server.ts`: Der Haupteinstiegspunkt für den SSR-Server.
-- `app/routes/`: Hier liegen die HonoX-Routen. Dateien mit `.tsx` werden serverseitig gerendert.
-- `app/islands/`: Client-seitige interaktive Komponenten (Hydration).
-- `app/db/`: Datenbank-Schema und Initialisierung (Drizzle + SQLite).
-- `app/middleware/`: Sicherheitsrelevante Logik (Auth, CSRF, Rate-Limiting).
-- `data/`: Permanenter Speicher für die SQLite-Datenbank und Uploads.
+### 1. Request Flow (Vom Browser zur DB)
+1.  **Caddy (Reverse Proxy):** Empfängt Request (443), terminiert SSL, prüft Rate-Limits.
+2.  **Bun (Runtime):** Startet den Server (`app/api-server.ts`).
+3.  **Hono (Router):**
+    *   Matcht `/api/*` -> Leitet an Module weiter (z.B. `app/modules/todos/api.ts`).
+    *   Matcht `*` -> Liefert statisches HTML aus (`dist/`).
+4.  **Middleware (`app/core/auth/middleware.ts`):**
+    *   Validiert Session-Cookie gegen SQLite DB.
+    *   Setzt `user` Context.
+5.  **Handler (Modul API):** Führt Business-Logik aus (z.B. Todo erstellen).
+6.  **Drizzle (ORM):** Generiert SQL -> Führt Query auf `data/sqlite.db` (WAL Mode) aus.
 
-### 2. Datenhaltung (SQLite + Drizzle)
-Wir nutzen **SQLite im WAL-Modus** (Write-Ahead Logging). Dies ermöglicht extrem schnelle Lese- und Schreibzugriffe bei minimalem Speicherverbrauch.
-- **Drizzle ORM**: Bietet volle Typsicherheit für SQL-Abfragen.
-- **Build Proxy**: Ein spezieller Mechanismus in `app/db/index.ts` sorgt dafür, dass Vite während des Builds (unter Node.js) nicht über Bun-native APIs stolpert.
+### 2. Projektstruktur
+```text
+app/
+├── core/                  # 🛡️ UNANTASTBAR (Framework-Basis)
+│   ├── auth/              # Login, Register, Session-Cleanup
+│   ├── db/                # DB-Verbindung & Mocking
+│   ├── ui/                # Generische Komponenten (Button, Card)
+│   └── lib/               # Shared Utils (Zod Schemas, Offline-Sync)
+│
+├── modules/               # 📦 DEINE FEATURES (Business Logic)
+│   ├── todos/             # Beispiel: Task-Manager
+│   ├── storage/           # Beispiel: File-Upload
+│   └── system/            # Beispiel: SSE Monitoring
+│
+├── routes/                # 🚦 Frontend Routing (HonoX)
+│   └── ...                # Pages (.tsx)
+│
+└── db.ts                  # Zentraler Schema-Export
+```
 
----
-
-## 🔐 Sicherheits-Konzept
-
-### Authentifizierung
-Wir nutzen keine einfachen JWT-Cookies, sondern ein **datenbankgestütztes Session-System**:
-1.  **Session-ID**: Ein zufälliger UUID-String wird in einem `HttpOnly`, `Secure`, `SameSite=Lax` Cookie gespeichert.
-2.  **Session-Store**: Die Session wird serverseitig in der SQLite-Datenbank validiert (`app/db/schema.ts`). Dies erlaubt sofortige Revokation (Logout).
-3.  **Passwort-Hashing**: Argon2id via `Bun.password`.
-
-### CSRF-Schutz
-Alle schreibenden API-Anfragen (`POST`, `PUT`, `DELETE`) erfordern einen `X-CSRF-Token` Header. Dieser Token wird beim Login generiert und ist an die Session gebunden.
-
----
-
-## 🎨 UI & Design (Tailwind 4)
-
-Das Template nutzt **TailwindCSS 4**. 
-- **Farben**: Definierte OKLCH-Variablen erlauben saubere Transparenzen und modernste Farbtöne.
-- **Komponenten**: Die Datei `app/components/UI.tsx` enthält standardisierte Elemente (Button, Input, Card, Badge), die für das gesamte System genutzt werden sollten.
-
----
-
-## 🚀 Deployment & Optimierung
-
-### Build-Prozess
-1.  **SSG**: Statische Routen werden während des Builds generiert.
-2.  **Bun-Binary**: Das gesamte System kann in eine einzige ausführbare Datei kompiliert werden:
-    ```bash
-    bun run build
-    ```
-
-### VPS Setup (Empfehlung)
-- **OS**: Ubuntu 24.04 LTS
-- **Runtime**: Bun 1.x
-- **Reverse Proxy**: Caddy (einfacher als Nginx, automatisch SSL)
-- **Process Manager**: Systemd oder `bun --hot`
+### 3. Core vs. Modules
+*   **Core:** Enthält alles, was für *jede* App nötig ist (Auth, DB-Connection). Ändere dies nur selten.
+*   **Modules:** Hier lebst du. Ein Modul enthält seine eigene API (`api.ts`), sein Datenbankschema (`schema.ts`) und seine UI-Komponenten (`islands/`).
+    *   *Regel:* Um ein Modul zu löschen, lösche einfach den Ordner und entferne den Import in `app/db.ts` und `app/api-server.ts`.
 
 ---
 
-## 🛠️ API Referenz
+## 🛠️ Deep Dive: Spezielle Konzepte
 
-### Auth API
-- `POST /api/auth/register`: Erstellt einen neuen User.
-- `POST /api/auth/login`: Startet eine Session.
-- `POST /api/auth/logout`: Zerstört die Session.
+### SQLite Mock & SSG (Warum?)
+**Frage:** *Brauche ich den `bun-sqlite-mock` wirklich?*
+**Antwort:** Ja, für den Build-Prozess.
+*   **Problem:** Vite (unser Build-Tool) führt Code teilweise in einer Node.js-ähnlichen Umgebung aus, um statisches HTML zu generieren (SSG). `bun:sqlite` ist aber eine native Bun-API, die in Node crasht.
+*   **Lösung:** Der Proxy in `app/core/db/index.ts` erkennt, wenn wir nicht in Bun laufen, und liefert ein "Dummy"-Objekt zurück. So läuft der Build durch, ohne dass eine echte DB-Verbindung nötig ist.
+*   **Best Practice:** Erst DB erstellen (`bun x drizzle-kit push`), dann Build. Aber der Mock garantiert, dass der *Code* auch ohne DB importierbar ist.
 
-### Todo API
-- `GET /api/todos`: Listet eigene Todos.
-- `POST /api/todos`: Erstellt Todo.
-- `PATCH /api/todos/:id`: Status ändern.
-
-### Storage API
-- `POST /api/storage/upload`: Datei-Upload (Multipart).
-- `GET /api/storage/download/:id`: Sicherer Datei-Download.
+### Vite Config & Low-Resource
+Die `vite.config.ts` ist bereits auf `esbuild` (extrem schnell/sparsam) eingestellt.
+*   **Tuning:** Für 512MB RAM ist keine weitere Änderung nötig. Bun managed den Speicher sehr effizient.
 
 ---
 
-## 📈 Skalierung
-Obwohl für 512MB RAM optimiert, kann das System durch den Einsatz von SQLite WAL und Bun problemlos Tausende gleichzeitige Anfragen verarbeiten, bevor ein Hardware-Upgrade nötig wird.
+## 🚀 Operations Guide (VPS Setup)
+
+Dein VPS (z.B. 5€/Monat, 512MB RAM) sollte so eingerichtet werden:
+
+### 1. Caddy (Reverse Proxy)
+Caddy ist effizienter als Nginx bei SSL und Kompression.
+Installiere Caddy und nutze dieses `Caddyfile`:
+
+```caddyfile
+deine-domain.com {
+    # 1. Kompression (Gzip/Zstd) - Spart Bandbreite
+    encode zstd gzip
+
+    # 2. Hard Rate Limiting (DDoS Schutz)
+    # Erlaubt 10 Requests pro Sekunde pro IP
+    rate_limit {
+        zone lean_vps_limit {
+            key {remote_host}
+            events 10
+            window 1s
+        }
+    }
+
+    # 3. Security Headers
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy strict-origin-when-cross-origin
+    }
+
+    # 4. Proxy zur Bun App
+    reverse_proxy localhost:3000
+}
+```
+*Tipp:* Rate-Limiting im Framework (`middleware/rateLimit.ts`) ist gut für User-Logik, aber Caddy schützt den Server *bevor* Node/Bun Last erzeugt.
+
+### 2. Systemd Service (Autostart)
+Erstelle `/etc/systemd/system/lean-app.service`:
+
+```ini
+[Unit]
+Description=Lean Mean VPS App
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/var/www/lean-app
+# Nutze das kompilierte Binary für max. Performance
+ExecStart=/var/www/lean-app/lean-server
+Restart=always
+# RAM Limit (Sicherheitsnetz)
+MemoryMax=400M
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### 3. Deployment Steps
+1.  Lokal: `bun run build`
+2.  Upload: Kopiere `lean-server` und den `dist/` Ordner auf den VPS.
+3.  VPS: `systemctl restart lean-app`.
+
+---
+
+## 💡 Developer FAQ
+
+**Wie füge ich eine Tabelle hinzu?**
+1.  Erstelle `app/modules/mein-feature/schema.ts`.
+2.  Exportiere sie in `app/db.ts`.
+3.  Führe `bun db:push` aus.
+
+**Wo sind die WebSockets?**
+Wir nutzen **Server-Sent Events (SSE)** in `app/modules/system/api.ts`.
+*   *Warum?* WebSockets halten eine TCP-Verbindung dauerhaft offen (teuer bei vielen Usern). SSE ist One-Way (Server -> Client) über HTTP und deutlich ressourcenschonender für Status-Updates.
+
+**Wie sicher ist das?**
+*   **Auth:** Argon2id (Standard).
+*   **Session:** DB-backed + Probabilistisches Cleanup (1% Chance bei Login).
+*   **Timing Attacks:** Login-Verzögerung ist durch Dummy-Hash-Check angeglichen.

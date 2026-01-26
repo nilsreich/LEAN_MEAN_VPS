@@ -23,11 +23,11 @@
  * ============================================================================
  */
 
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import type { Context, Next } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { db } from '../db';
-import { sessions } from '../db/schema';
+import { sessions } from './schema';
 
 /**
  * Inferierter Typ für eine Session aus dem Schema.
@@ -61,9 +61,16 @@ function generateSecureToken(bytes = 32): string {
 /**
  * Erstellt eine neue Session und setzt die entsprechenden Cookies.
  */
-export async function createSession(c: Context, userId: number, _username: string) {
+export async function createSession(c: Context, userId: number) {
   const sessionId = crypto.randomUUID();
   const csrfToken = generateSecureToken(); // Explizites CSPRNG Hex-Token
+
+  // Probabilistisches Cleanup (1% Chance)
+  // Löscht abgelaufene Sessions, um die DB klein zu halten
+  if (Math.random() < 0.01) {
+    const now = new Date().toISOString();
+    await db.delete(sessions).where(sql`${sessions.expiresAt} < ${now}`);
+  }
 
   await db.insert(sessions).values({
     id: sessionId,

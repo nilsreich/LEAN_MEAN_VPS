@@ -25,8 +25,8 @@
 
 import { createRoute } from 'honox/factory';
 import DashboardIsland from '../islands/DashboardIsland';
-import TodoIsland from '../islands/TodoIsland';
-import UploadIsland from '../islands/UploadIsland';
+import TodoIsland from '../modules/todos/islands/TodoIsland';
+import UploadIsland from '../modules/storage/islands/UploadIsland';
 
 export default createRoute(async (c) => {
   return c.render(

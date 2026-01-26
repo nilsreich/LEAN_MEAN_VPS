@@ -23,10 +23,10 @@ import { existsSync, mkdirSync } from 'node:fs';
 import { Hono } from 'hono';
 import { serveStatic } from 'hono/bun';
 
-import auth from './routes/api/auth';
-import events from './routes/api/events';
-import storage from './routes/api/storage';
-import todos from './routes/api/todos';
+import auth from './core/auth/api';
+import events from './modules/system/api';
+import storage from './modules/storage/api';
+import todos from './modules/todos/api';
 
 // Sicherstellen, dass das Upload-Verzeichnis existiert
 if (!existsSync('data/uploads')) {

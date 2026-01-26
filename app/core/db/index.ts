@@ -28,7 +28,7 @@
 
 import { existsSync, mkdirSync } from 'node:fs';
 import { drizzle } from 'drizzle-orm/bun-sqlite';
-import * as schema from './schema';
+import * as schema from '../../db';
 
 /**
  * Inferiert den Typ der Drizzle-Instanz für globale Verwendung.

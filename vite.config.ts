@@ -101,7 +101,7 @@ export default defineConfig(({ mode }) => {
   return {
     resolve: {
       alias: {
-        'bun:sqlite': path.resolve(__dirname, './app/db/bun-sqlite-mock.ts'),
+        'bun:sqlite': path.resolve(__dirname, './app/core/db/bun-sqlite-mock.ts'),
       },
     },
     plugins: [

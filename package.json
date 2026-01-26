@@ -4,19 +4,19 @@
   "description": "Ultra-schlanke Full-Stack App für Low-Resource VPS (512MB RAM)",
   "type": "module",
   "scripts": {
-    "dev": "bunx --bun vite",
-    "build:frontend": "bunx --bun vite build --mode client && bunx --bun vite build",
+    "dev": "bun x --bun vite",
+    "build:frontend": "bun x --bun vite build --mode client && bun x --bun vite build",
     "build:backend": "bun build ./app/api-server.ts --compile --minify --target bun --outfile lean-server",
     "build": "bun run build:frontend && bun run build:backend",
     "start": "./lean-server",
     "start:dev": "bun run ./app/api-server.ts",
-    "db:push": "bunx drizzle-kit push",
-    "db:generate": "bunx drizzle-kit generate",
-    "db:studio": "bunx drizzle-kit studio",
-    "lint": "bunx @biomejs/biome lint ./app",
-    "format": "bunx @biomejs/biome format ./app --write",
-    "check": "bunx @biomejs/biome check --write ./app",
-    "typecheck": "bunx tsc --noEmit"
+    "db:push": "bun x drizzle-kit push",
+    "db:generate": "bun x drizzle-kit generate",
+    "db:studio": "bun x drizzle-kit studio",
+    "lint": "bun x @biomejs/biome lint ./app",
+    "format": "bun x @biomejs/biome format ./app --write",
+    "check": "bun x @biomejs/biome check --write ./app",
+    "typecheck": "bun x tsc --noEmit"
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.12",

@@ -25,11 +25,11 @@ import { unlink } from 'node:fs/promises';
 import { zValidator } from '@hono/zod-validator';
 import { and, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
-import { db } from '../../db';
-import { uploads } from '../../db/schema';
-import { uploadSchema, uuidParamSchema } from '../../lib/validation';
-import { authMiddleware, csrfMiddleware, type Env } from '../../middleware/auth';
-import { rateLimiter } from '../../middleware/rateLimit';
+import { db } from '../../core/db';
+import { uploads } from './schema';
+import { uploadSchema, uuidParamSchema } from '../../core/lib/validation';
+import { authMiddleware, csrfMiddleware, type Env } from '../../core/auth/middleware';
+import { rateLimiter } from '../../core/middleware/rateLimit';
 
 const api = new Hono<Env>();
 

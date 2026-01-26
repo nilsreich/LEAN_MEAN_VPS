@@ -22,7 +22,7 @@
 
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
-import { authMiddleware, type Env } from '../../middleware/auth';
+import { authMiddleware, type Env } from '../../core/auth/middleware';
 
 const api = new Hono<Env>();
 

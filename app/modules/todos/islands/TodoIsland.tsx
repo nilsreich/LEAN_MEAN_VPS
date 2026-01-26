@@ -24,9 +24,9 @@
  */
 
 import { useEffect, useState } from 'hono/jsx';
-import { Badge, Button, Card, Input } from '../components/UI';
-import { connectivity, mutationQueue } from '../lib/offline';
-import { notify } from './ToastIsland';
+import { Badge, Button, Card, Input } from '../../../core/ui';
+import { connectivity, mutationQueue } from '../../../core/lib/offline';
+import { notify } from '../../../islands/ToastIsland';
 
 interface Todo {
   id: number;

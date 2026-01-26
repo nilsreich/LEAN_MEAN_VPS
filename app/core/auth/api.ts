@@ -25,18 +25,18 @@
 import { zValidator } from '@hono/zod-validator';
 import { eq } from 'drizzle-orm';
 import { Hono } from 'hono';
-import { db } from '../../db';
-import { users } from '../../db/schema';
-import { hashPassword, verifyPassword } from '../../lib/password';
-import { loginSchema, registerSchema } from '../../lib/validation';
+import { db } from '../db';
+import { users } from './schema';
+import { hashPassword, verifyPassword } from '../lib/password';
+import { loginSchema, registerSchema } from '../lib/validation';
 import {
   authMiddleware,
   clearAuth,
   createSession,
   csrfMiddleware,
   type Env,
-} from '../../middleware/auth';
-import { rateLimiter } from '../../middleware/rateLimit';
+} from './middleware';
+import { rateLimiter } from '../middleware/rateLimit';
 
 const auth = new Hono<Env>();
 
@@ -61,7 +61,7 @@ auth.post(
     const [newUser] = await db.insert(users).values({ username, passwordHash: hashed }).returning();
 
     // Auto-Login nach Registrierung
-    await createSession(c, newUser.id, newUser.username);
+    await createSession(c, newUser.id);
 
     return c.json({ success: true, message: 'Registrierung erfolgreich' });
   },
@@ -82,11 +82,16 @@ auth.post(
       where: eq(users.username, username),
     });
 
-    if (!user || !(await verifyPassword(password, user.passwordHash))) {
+    // Timing-Attack Mitigation: Immer verifizieren, auch wenn User nicht existiert
+    // Nutzung eines Dummy-Hashes (Argon2id, cost=standard)
+    const dummyHash = '$argon2id$v=19$m=32768,t=3,p=1$ZHVtbXlzYWx0ZHVtbXlzYWx0$dummysaltdummysaltdummysaltdummysaltdummy';
+    const isValid = await verifyPassword(password, user ? user.passwordHash : dummyHash);
+
+    if (!user || !isValid) {
       return c.json({ success: false, error: 'Ungültige Zugangsdaten' }, 401);
     }
 
-    await createSession(c, user.id, user.username);
+    await createSession(c, user.id);
 
     return c.json({ success: true });
   },

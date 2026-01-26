@@ -20,7 +20,7 @@
  */
 
 import { useEffect, useState } from 'hono/jsx';
-import { connectivity, syncEngine } from '../lib/offline';
+import { connectivity, syncEngine } from '../core/lib/offline';
 
 export type ToastType = 'info' | 'success' | 'error' | 'warning';
 
