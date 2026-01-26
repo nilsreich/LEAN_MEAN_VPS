@@ -1,11 +1,11 @@
-# Storage Module (Filesystem)
+# Storage Modul (Dateisystem)
 
-> **Role:** Managing Binary Assets
-> **Constraint:** 512MB RAM Limit (Streaming required)
+> **Rolle:** Verwaltung von binären Assets
+> **Einschränkung:** 512MB RAM Limit (Streaming erforderlich)
 
-## 1. Architecture
+## 1. Architektur
 
-Unlike cloud-native apps (S3), this module stores files on the **local VPS filesystem** to save costs and reduce latency.
+Anders als Cloud-native Apps (S3), speichert dieses Modul Dateien auf dem **lokalen VPS Dateisystem**, um Kosten zu sparen und Latenz zu reduzieren.
 
 ```mermaid
 graph LR
@@ -15,35 +15,35 @@ graph LR
     Logic -->|INSERT Metadata| DB[(SQLite)]
 ```
 
-## 2. API Specifications
+## 2. API Spezifikationen
 
 ### `POST /api/storage/upload`
-*   **Body:** `multipart/form-data` (`file` field).
-*   **Validation:**
-    *   Max Size: 10MB (Enforced via Zod).
-    *   File Type: All types allowed (stored with mime-type).
-*   **Safety:**
-    *   Original filename is **never** used on disk.
-    *   Storage Path: `data/uploads/{UUID}`.
-    *   Prevents `../../etc/passwd` path traversal attacks.
+*   **Body:** `multipart/form-data` (`file` Feld).
+*   **Validierung:**
+    *   Max Größe: 10MB (Erzwungen via Zod).
+    *   Dateityp: Alle Typen erlaubt (gespeichert mit MIME-Type).
+*   **Sicherheit:**
+    *   Original-Dateiname wird **niemals** auf der Festplatte verwendet.
+    *   Speicherpfad: `data/uploads/{UUID}`.
+    *   Verhindert `../../etc/passwd` Path Traversal Angriffe.
 
 ### `GET /api/storage/download/:id`
-*   **Mechanism:** Zero-Copy Streaming.
-*   **Implementation:**
+*   **Mechanismus:** Zero-Copy Streaming.
+*   **Implementierung:**
     ```typescript
     // app/modules/storage/api.ts
     const file = Bun.file(path);
     return c.body(file.stream());
     ```
-*   **Memory Impact:** Uses minimal RAM. Node.js `fs.readFileSync` would load the entire file into RAM (Bad for 512MB server). Bun streams it directly from disk to socket.
+*   **Speicher-Impact:** Nutzt minimal RAM. Node.js `fs.readFileSync` würde die gesamte Datei in den RAM laden (Schlecht für 512MB Server). Bun streamt direkt von Disk zu Socket.
 
-## 3. Metadata Schema
+## 3. Metadaten Schema
 
 ```sql
 CREATE TABLE uploads (
   id TEXT PRIMARY KEY, -- UUIDv4
   user_id INTEGER NOT NULL,
-  filename TEXT NOT NULL, -- Original user filename (for display)
+  filename TEXT NOT NULL, -- Originaler User-Dateiname (für Anzeige)
   size INTEGER NOT NULL,
   mime_type TEXT NOT NULL
 );

@@ -1,11 +1,11 @@
-# Tasks Module (CRUD Example)
+# Tasks Modul (CRUD Beispiel)
 
-> **Role:** Demo of Standard CRUD Operations
-> **Tech Stack:** Drizzle ORM, Zod Validation, Optimistic UI
+> **Rolle:** Demo für Standard CRUD Operationen
+> **Tech Stack:** Drizzle ORM, Zod Validierung, Optimistic UI
 
-## 1. Data Model (ERD)
+## 1. Datenmodell (ERD)
 
-Strict relationship with `users` table via Foreign Key.
+Strikte Beziehung zur `users` Tabelle via Foreign Key.
 
 ```mermaid
 erDiagram
@@ -19,31 +19,31 @@ erDiagram
     }
 ```
 
-## 2. API Specifications
+## 2. API Spezifikationen
 
-All endpoints require `Session Auth` headers.
+Alle Endpunkte erfordern `Session Auth` Header.
 
 ### `GET /api/tasks`
-Returns all tasks for the *current* user.
+Gibt alle Aufgaben des *aktuellen* Benutzers zurück.
 *   **Response:** `200 OK` `{ success: true, data: Task[] }`
-*   **Performance:** Indexed query on `user_id`.
+*   **Performance:** Indizierte Abfrage auf `user_id`.
 
 ### `PATCH /api/tasks/:id/toggle`
-Atomic status toggle.
-*   **Implementation:**
+Atomarer Status-Wechsel.
+*   **Implementierung:**
     ```typescript
-    // Atomic SQL update prevents race conditions
+    // Atomares SQL-Update verhindert Race Conditions
     db.update(tasks).set({
       completed: sql`NOT ${tasks.completed}`
     })
     ```
-*   **Why:** Traditional "Read -> Modify -> Save" logic is vulnerable to race conditions if a user clicks twice rapidly. SQL-level toggling is strictly atomic.
+*   **Warum:** Traditionelle "Read -> Modify -> Save" Logik ist anfällig für Race Conditions, wenn ein User schnell doppelt klickt. SQL-Level Toggling ist strikt atomar.
 
-## 3. Client-Side Strategy (TodoIsland.tsx)
+## 3. Client-Side Strategie (TodoIsland.tsx)
 
 ### Offline Support & Queueing
-The UI uses `app/core/lib/offline.ts`.
-1.  **Intercept:** When `fetch` fails (Network Error), the request is serialized.
-2.  **Queue:** Stored in `localStorage` (`mutation_queue`).
-3.  **Optimistic Update:** The UI updates immediately (`setTodos(...)`) assuming success.
-4.  **Sync:** When connectivity returns, the queue is processed FIFO.
+Die UI nutzt `app/core/lib/offline.ts`.
+1.  **Intercept:** Wenn `fetch` fehlschlägt (Netzwerkfehler), wird der Request serialisiert.
+2.  **Queue:** Gespeichert in `localStorage` (`mutation_queue`).
+3.  **Optimistic Update:** Die UI aktualisiert sofort (`setTodos(...)`) unter Annahme des Erfolgs.
+4.  **Sync:** Bei Rückkehr der Verbindung wird die Queue FIFO abgearbeitet.

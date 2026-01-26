@@ -1,16 +1,16 @@
 # 📘 LEAN MEAN VPS - Framework Technical Whitepaper
 
 > **Version:** 2.1.0
-> **Target Audience:** Senior Fullstack Engineers & System Architects
-> **Philosophy:** Zero-Runtime-Bloat, Maximum Hardware Efficiency (512MB RAM), Vertical Slice Architecture.
+> **Zielgruppe:** Senior Fullstack Engineers & System Architects
+> **Philosophie:** Zero-Runtime-Bloat, Maximale Hardware-Effizienz (512MB RAM), Vertical Slice Architektur.
 
 ---
 
-## 1. System Architecture
+## 1. System Architektur
 
-The framework implements a **Vertical Slice Architecture** on top of Bun and Hono. Unlike traditional Layered Architectures (Controller -> Service -> Repo), code is organized by **Feature Modules**.
+Das Framework implementiert eine **Vertical Slice Architektur** auf Basis von Bun und Hono. Im Gegensatz zu traditionellen Schichtenarchitekturen (Controller -> Service -> Repo) ist der Code hier nach **Feature Modulen** organisiert.
 
-### 1.1 High-Level Component Diagram
+### 1.1 High-Level Komponenten Diagramm
 
 ```mermaid
 graph TD
@@ -46,9 +46,9 @@ graph TD
     DB_Conn -->|libSQL / bun:sqlite| SQLite
 ```
 
-### 1.2 Request Lifecycle (Sequence)
+### 1.2 Request Lifecycle (Sequenz)
 
-Typical flow for an authenticated API request (e.g., `POST /api/tasks`):
+Typischer Ablauf eines authentifizierten API Requests (z.B. `POST /api/tasks`):
 
 ```mermaid
 sequenceDiagram
@@ -80,14 +80,14 @@ sequenceDiagram
 
 ---
 
-## 2. Core Subsystems Deep Dive
+## 2. Core Subsysteme Deep Dive
 
-### 2.1 Database Abstraction & Build-Time Mocking
+### 2.1 Datenbank Abstraktion & Build-Time Mocking
 
-The project uses a unique "Build-Time Proxy" pattern to support Static Site Generation (SSG) via Vite while using native Bun APIs.
+Das Projekt nutzt ein spezielles "Build-Time Proxy" Pattern, um Static Site Generation (SSG) via Vite zu ermöglichen, während native Bun APIs verwendet werden.
 
-*   **Problem:** Vite runs in Node.js (or a Node-compat layer) during the build process. `bun:sqlite` is a native binary module exclusive to the Bun Runtime. Importing it during `vite build` causes a crash.
-*   **Solution:** `app/core/db/index.ts` detects the environment.
+*   **Problem:** Vite läuft während des Build-Prozesses in Node.js (oder einem Node-Compat Layer). `bun:sqlite` ist ein natives Binary-Modul exklusiv für die Bun Runtime. Der Import während `vite build` führt zum Crash.
+*   **Lösung:** `app/core/db/index.ts` erkennt die Umgebung.
 
 ```typescript
 // app/core/db/index.ts
@@ -97,8 +97,8 @@ export async function getDb(): Promise<DbType> {
 
   if (!isBunRuntime) {
     // BUILD-TIME MOCK
-    // Returns a Proxy that swallows all calls (e.g. db.select()...)
-    // ensuring imports work but don't execute logic.
+    // Gibt einen Proxy zurück, der alle Aufrufe "schluckt" (z.B. db.select()...)
+    // und so den Import ermöglicht, ohne Logik auszuführen.
     return createBuildProxy();
   }
 
@@ -108,42 +108,42 @@ export async function getDb(): Promise<DbType> {
 }
 ```
 
-### 2.2 Security Architecture
+### 2.2 Sicherheits-Architektur
 
-#### Authentication (Argon2id)
-We use `Bun.password` which implements Argon2id.
-*   **Memory Cost:** 32MB (configured as `32768`).
-*   **Time Cost:** 3 iterations.
-*   **Rationale:** On a 512MB VPS, dedicating 32MB per login request is the sweet spot between security (resistance to GPU cracking) and stability (preventing OOM kills during concurrent logins).
+#### Authentifizierung (Argon2id)
+Wir nutzen `Bun.password`, welches Argon2id implementiert.
+*   **Memory Cost:** 32MB (konfiguriert als `32768`).
+*   **Time Cost:** 3 Iterationen.
+*   **Begründung:** Auf einem 512MB VPS sind 32MB pro Login-Request der Sweetspot zwischen Sicherheit (Resistenz gegen GPU-Cracking) und Stabilität (Vermeidung von OOM Kills bei parallelen Logins).
 
 #### Timing Attack Mitigation
-In `app/core/auth/api.ts`, we implement a "Dummy Verification":
+In `app/core/auth/api.ts` implementieren wir eine "Dummy Verifikation":
 
 ```typescript
-const dummyHash = '$argon2id$...'; // Pre-calculated
+const dummyHash = '$argon2id$...'; // Vorberechnet
 const isValid = await verifyPassword(password, user ? user.passwordHash : dummyHash);
 ```
-*   **Mechanism:** Even if a user is not found, the expensive Argon2id verification is executed against a dummy hash.
-*   **Result:** Response time for "User not found" vs "Wrong password" is statistically identical (~300ms), preventing username enumeration.
+*   **Mechanismus:** Selbst wenn ein Benutzer nicht gefunden wird, wird die teure Argon2id Verifikation gegen einen Dummy-Hash ausgeführt.
+*   **Ergebnis:** Die Antwortzeit für "User nicht gefunden" vs "Falsches Passwort" ist statistisch identisch (~300ms), was User Enumeration verhindert.
 
 #### Session Management
-*   **Storage:** SQLite `sessions` table.
-*   **Cleanup:** Probabilistic algorithm (1% chance on creation) triggers `DELETE FROM sessions WHERE expiresAt < NOW()`. This avoids the need for an external Cron daemon.
+*   **Speicher:** SQLite `sessions` Tabelle.
+*   **Cleanup:** Probabilistischer Algorithmus (1% Chance bei Erstellung) triggert `DELETE FROM sessions WHERE expiresAt < NOW()`. Dies vermeidet die Notwendigkeit eines externen Cron-Daemons.
 
 ---
 
 ## 3. Operations & Deployment
 
-### 3.1 Caddy Configuration (Recommended)
-Caddy serves as the TLS terminator and Edge Layer.
+### 3.1 Caddy Konfiguration (Empfohlen)
+Caddy dient als TLS Terminator und Edge Layer.
 
-**`Caddyfile` Optimizations:**
+**`Caddyfile` Optimierungen:**
 ```caddyfile
 domain.com {
-    # 1. Zstandard Compression (Faster & better ratio than Gzip)
+    # 1. Zstandard Kompression (Schneller & bessere Ratio als Gzip)
     encode zstd gzip
 
-    # 2. Hard Rate Limiting (Layer 7 DDoS Protection)
+    # 2. Hard Rate Limiting (Layer 7 DDoS Schutz)
     rate_limit {
         zone lean_vps_limit {
             key {remote_host}
@@ -157,28 +157,49 @@ domain.com {
 ```
 
 ### 3.2 Systemd Service
-The application runs as a single binary.
+Die Anwendung läuft als einzelnes Binary.
 
 ```ini
 # /etc/systemd/system/lean-app.service
 [Service]
 ExecStart=/path/to/lean-server
-# Critical for 512MB VPS:
+# Kritisch für 512MB VPS:
 MemoryMax=400M
 Restart=always
 ```
 
 ---
 
-## 4. Module Development Guide
+## 4. Modul Entwicklungs-Guide
 
-To add a new feature (e.g. "Blog"):
+Um ein neues Feature hinzuzufügen (z.B. "Blog"):
 
-1.  **Create Directory:** `app/modules/blog`
-2.  **Define Schema:** `app/modules/blog/schema.ts` (Export Drizzle tables)
-3.  **Register Schema:** Add `export * from './modules/blog/schema'` to `app/db.ts`.
-4.  **Create API:** `app/modules/blog/api.ts` (Hono instance).
-5.  **Mount API:** Add `app.route('/api/blog', blog)` to `app/api-server.ts`.
-6.  **Develop UI:** Create Islands in `app/modules/blog/islands/`.
+1.  **Verzeichnis erstellen:** `app/modules/blog`
+2.  **Schema definieren:** `app/modules/blog/schema.ts` (Drizzle Tabellen exportieren)
+3.  **Schema registrieren:** Füge `export * from './modules/blog/schema'` zu `app/db.ts` hinzu.
+4.  **API erstellen:** `app/modules/blog/api.ts` (Hono Instanz).
+5.  **API mounten:** Füge `app.route('/api/blog', blog)` zu `app/api-server.ts` hinzu.
+6.  **UI entwickeln:** Erstelle Islands in `app/modules/blog/islands/`.
 
-**Constraint:** Modules MUST NOT import from other modules directly. Use the Database or Event Bus (`app/core/events`) for decoupling.
+**Einschränkung:** Module DÜRFEN NICHT direkt voneinander importieren. Nutze die Datenbank oder einen Event Bus (`app/core/events`) zur Entkopplung.
+
+---
+
+## 5. FAQ & Design Entscheidungen
+
+### Warum Bun Native WebSockets für den Chat?
+Wir haben uns für Bun's `server.publish()` (Native Pub/Sub) statt Standard JS WebSockets oder SSE für das Chat Modul entschieden.
+*   **Performance:** Das Handling von 5000+ Verbindungen in JS (Array-Loops) erzeugt massiven GC-Druck. Bun erledigt dies in nativem C++/Zig Code.
+*   **Speicher:** Drastisch geringerer Overhead pro Verbindung.
+*   **Analogie:** SSE ist wie ein Postbote, der 5000 Briefe einzeln austrägt. Bun Pub/Sub ist wie ein Rohrpostsystem, wo der Brief automatisch im richtigen Schacht landet.
+
+### SQLite Mock & SSG (Warum?)
+**F:** *Brauche ich den `bun-sqlite-mock` wirklich?*
+**A:** Ja, für den Build-Prozess.
+*   **Problem:** Vite läuft während des SSG-Builds in Node.js. `bun:sqlite` ist Bun-exklusiv und lässt Node abstürzen.
+*   **Lösung:** Der Proxy in `app/core/db/index.ts` erkennt die Umgebung und tauscht die echte DB gegen ein Dummy-Objekt aus.
+
+### Sicherheit
+*   **Auth:** Argon2id (32MB RAM Cost).
+*   **Timing Attacks:** Mitigated durch Dummy Hash Verifikation.
+*   **Session Cleanup:** Probabilistisch (1% Chance) beim Login.

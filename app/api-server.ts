@@ -24,7 +24,7 @@ import { Hono } from 'hono';
 import { serveStatic } from 'hono/bun';
 
 import auth from './core/auth/api';
-import chat from './modules/chat/api';
+import chat, { websocket } from './modules/chat/api';
 import storage from './modules/storage/api';
 import tasks from './modules/tasks/api';
 
@@ -74,5 +74,6 @@ app.get('*', async (c, next) => {
 export default {
   port: Number(process.env.PORT) || 3000,
   fetch: app.fetch,
+  websocket,
   hostname: '0.0.0.0',
 };
