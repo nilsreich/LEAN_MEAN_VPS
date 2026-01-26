@@ -21,6 +21,7 @@
 
 import { useEffect, useState } from 'hono/jsx';
 import { connectivity, syncEngine } from '../core/lib/offline';
+import type { Dictionary } from '../core/i18n/types';
 
 export type ToastType = 'info' | 'success' | 'error' | 'warning';
 
@@ -40,7 +41,7 @@ export const notify = (msg: string, type: ToastType = 'info') => {
   if (toastFn) toastFn(msg, type);
 };
 
-export default function ToastIsland() {
+export default function ToastIsland({ messages }: { messages: Dictionary['toast'] }) {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   useEffect(() => {
@@ -57,21 +58,21 @@ export default function ToastIsland() {
     // 2. Connectivity Überwachung
     const unsubscribe = connectivity.onStatusChange(async (isOnline) => {
       if (isOnline) {
-        notify('Wieder online! Synchronisiere Daten...', 'success');
+        notify(messages.online, 'success');
         const result = await syncEngine.process();
         if (result.success > 0) {
-          notify(`${result.success} Aktionen erfolgreich synchronisiert.`, 'success');
+          notify(`${result.success} ${messages.synced}`, 'success');
         }
         if (result.failed > 0) {
-          notify(`${result.failed} Aktionen fehlgeschlagen.`, 'error');
+          notify(`${result.failed} ${messages.syncFailed}`, 'error');
         }
       } else {
-        notify('Offline-Modus: Änderungen werden lokal gespeichert.', 'warning');
+        notify(messages.offline, 'warning');
       }
     });
 
     return unsubscribe;
-  }, []);
+  }, [messages]);
 
   return (
     <div className="fixed bottom-6 right-6 z-[100] flex flex-col gap-3 pointer-events-none max-w-sm w-full">

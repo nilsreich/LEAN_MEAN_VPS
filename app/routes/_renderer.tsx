@@ -24,11 +24,19 @@
 import { jsxRenderer } from 'hono/jsx-renderer';
 import { Script } from 'honox/server';
 import ToastIsland from '../islands/ToastIsland';
+import type { Dictionary } from '../core/i18n/types';
+
+interface RendererProps {
+  title?: string;
+  lang?: string;
+  toastMessages?: Dictionary['toast'];
+  clientMessages?: Dictionary['client'];
+}
 
 export default jsxRenderer(({ children, ...props }) => {
-  const title = (props as { title?: string }).title;
+  const { title, lang, toastMessages, clientMessages } = props as RendererProps;
   return (
-    <html lang="de">
+    <html lang={lang || 'de'}>
       <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -46,7 +54,17 @@ export default jsxRenderer(({ children, ...props }) => {
         <main className="min-h-screen">{children}</main>
 
         {/* Global UI Islands */}
-        <ToastIsland />
+        {/* @ts-expect-error - HonoX Client-Side Directive with Props */}
+        <ToastIsland messages={toastMessages} />
+
+        {/* Client Translations */}
+        {clientMessages && (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `window.__I18N_CLIENT__ = ${JSON.stringify(clientMessages)};`,
+            }}
+          />
+        )}
 
         {/* HonoX Hydration Script */}
         <Script src="/app/client.ts" />

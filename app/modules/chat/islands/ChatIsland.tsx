@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'hono/jsx';
 import { Button, Card, Input } from '../../../core/ui';
+import type { Dictionary } from '../../../core/i18n/types';
 
 interface Message {
   id: number;
@@ -9,7 +10,7 @@ interface Message {
   room?: string;
 }
 
-export default function ChatIsland() {
+export default function ChatIsland({ dict }: { dict: Dictionary['modules']['chat'] }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [room, setRoom] = useState('general');
@@ -86,7 +87,7 @@ export default function ChatIsland() {
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full ${status === 'connected' ? 'bg-green-500' : 'bg-red-500'}`} />
           <span className="text-xs font-bold uppercase tracking-widest text-text-muted">
-            {status}
+            {dict.status[status]}
           </span>
         </div>
         <select
@@ -121,12 +122,12 @@ export default function ChatIsland() {
         <Input
           value={input}
           onChange={(e: any) => setInput(e.target.value)}
-          placeholder={`Nachricht an #${room}...`}
+          placeholder={`${dict.placeholder}${room}...`}
           className="flex-1"
           disabled={status !== 'connected'}
         />
         <Button type="submit" disabled={status !== 'connected'}>
-          Send
+          {dict.send}
         </Button>
       </form>
     </Card>
