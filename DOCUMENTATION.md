@@ -1,156 +1,249 @@
-# 📘 LEAN MEAN VPS - Technical Architecture Whitepaper
+# 📘 LEAN MEAN VPS - The Ultimate Technical Reference
 
-> **Version:** 2.2.0 (Stable)
-> **Author:** Jules (AI Software Engineer)
-> **Target Audience:** Principal Engineers, System Architects & DevOps
-> **System Constraint:** 1 vCPU, 512MB RAM, 10GB NVMe
-
----
-
-## 1. Executive Summary
-
-Das **LEAN MEAN VPS Framework** ist eine radikale Antwort auf den Trend zu immer komplexeren Cloud-Native Stacks. Es beweist, dass eine moderne, Fullstack-Typesafe Anwendung (SSR, Realtime, DB) auf **minimalster Hardware** betrieben werden kann, ohne Kompromisse bei der Developer Experience (DX) einzugehen.
-
-**Kern-Metriken:**
-*   **Idle RAM:** ~45MB (inkl. DB-Engine)
-*   **Cold Start:** <50ms
-*   **Throughput:** ~12k Req/sec (Hello World), ~2k Req/sec (DB Read)
-*   **Max Concurrent WebSocket Users:** ~5000 (Single Node)
+> **Version:** 3.0.0 (The Bible Edition)
+> **Status:** Production Ready
+> **Target Audience:** Principal Software Engineers, Solutions Architects, CTOs
+> **Mission:** Maximum Performance & Security on Minimal Hardware (1 vCPU, 512MB RAM).
 
 ---
 
-## 2. Architektur & Design-Entscheidungen
+## 📑 Inhaltsverzeichnis
 
-Wir folgen einer **Vertical Slice Architecture**. Im Gegensatz zu horizontalen Schichten (Layered Architecture), wo Änderungen sich durch alle Layer (Controller, Service, Repository) ziehen, kapselt dieses Framework Features in isolierte Module.
+1.  [Philosophie & Core Principles](#1-philosophie--core-principles)
+2.  [System Architektur (High-Level)](#2-system-architektur-high-level)
+3.  [Request Lifecycle (Deep Dive)](#3-request-lifecycle-deep-dive)
+4.  [Design-Entscheidungen & Rechtfertigungen](#4-design-entscheidungen--rechtfertigungen)
+5.  [Performance Secrets](#5-performance-secrets)
+6.  [Security Architecture](#6-security-architecture)
+7.  [Operational Excellence](#7-operational-excellence)
+8.  [Developer Guide (How-To)](#8-developer-guide-how-to)
+9.  [FAQ & Troubleshooting](#9-faq--troubleshooting)
 
-### 2.1 Ordnerstruktur & Responsibilities
+---
 
-```text
-app/
-├── core/                  # 🛡️ Infrastructure Layer (The "Framework")
-│   ├── auth/              # AuthN/AuthZ, Session Mgmt (Argon2id)
-│   ├── db/                # Drizzle Client, Build-Proxies
-│   └── ui/                # Atomic UI Components (Stateless)
-│
-├── modules/               # 📦 Domain Layer (Vertical Slices)
-│   ├── chat/              # High-Performance Chat (Bun Native)
-│   ├── tasks/             # CRUD Domain
-│   └── storage/           # Binary Asset Management
-│
-├── components/            # 🧱 Shared SSR Layouts (Header, Footer)
-└── api-server.ts          # 🚀 Application Entrypoint
+## 1. Philosophie & Core Principles
+
+Dieses Framework ist eine Antithese zu modernen Cloud-Native Stacks, die oft unnötige Komplexität ("Bloat") mit sich bringen.
+
+### Das "Zero-Bloat" Manifest
+1.  **Hardware is King:** Software muss sich der Hardware anpassen, nicht umgekehrt. Wir zielen auf 512MB RAM. Jedes Byte Overhead (Docker, K8s, JVM) ist ein Byte, das der App fehlt.
+2.  **Vertical Slices > Horizontal Layers:** Features werden vertikal geschnitten (UI + API + DB), nicht horizontal (Controller + Service + Repo). Das reduziert Kontext-Wechsel und Code-Spaghetti.
+3.  **Native Power:** Wir nutzen Features der Runtime (Bun Pub/Sub, SQLite WAL), statt externe Dependencies (Redis, Postgres) zu laden.
+
+---
+
+## 2. System Architektur (High-Level)
+
+Das System besteht aus einem einzigen monolithischen Binary (`lean-server`), das hinter einem Reverse Proxy (`Caddy`) läuft.
+
+```mermaid
+graph TD
+    User[End User / Browser]
+
+    subgraph "Edge Layer (Caddy)"
+        LB[Reverse Proxy]
+        RateLimit[Layer 7 Rate Limiter]
+        SSL[TLS Termination]
+    end
+
+    subgraph "Application Core (Bun Runtime)"
+        API[Hono API Server]
+
+        subgraph "Vertical Slices (Modules)"
+            Auth[Auth Module]
+            Chat[Chat Module]
+            Tasks[Tasks Module]
+        end
+
+        subgraph "Infrastructure (Core)"
+            DB_Pool[Drizzle SQLite Pool]
+            PubSub[Bun Native C++ Pub/Sub]
+        end
+    end
+
+    subgraph "Persistence Layer"
+        SQLite[(SQLite WAL File)]
+        FS[Filesystem /data]
+    end
+
+    User -->|HTTPS| LB
+    LB --> RateLimit
+    RateLimit --> SSL
+    SSL -->|HTTP/1.1| API
+
+    API --> Auth
+    API --> Chat
+    API --> Tasks
+
+    Chat --> PubSub
+    Tasks --> DB_Pool
+    Auth --> DB_Pool
+
+    DB_Pool --> SQLite
+    DB_Pool --> FS
 ```
 
-### 2.2 Request Lifecycle (Deep Dive)
+---
 
-Jeder Request durchläuft eine strikte Pipeline. Hier ist der exakte Flow für einen POST-Request:
+## 3. Request Lifecycle (Deep Dive)
 
-1.  **Ingress (Caddy):** Terminiert TLS (Let's Encrypt), dekomprimiert (Zstd/Gzip) und prüft Layer-7 Rate Limits.
-2.  **Runtime (Bun):** Nimmt HTTP Request am Unix Socket oder Port entgegen.
-3.  **Router (Hono):** Matched Route (Radix Tree Algorithmus).
-4.  **Middleware (Auth):**
-    *   Liest `auth_session` Cookie.
-    *   **DB Lookup:** `SELECT * FROM sessions WHERE id = ?`.
-    *   **Validation:** Prüft `expires_at` und `csrf_token` (bei Mutationen).
-    *   *Optimierung:* User-Context wird in `c.set('user', ...)` injiziert.
-5.  **Handler (Module):**
-    *   **Validation:** Zod prüft Input-Payload (Fail-Fast).
-    *   **Logic:** Führt Business-Logik aus.
-    *   **Persistence:** Drizzle führt Prepared Statements gegen SQLite aus.
-6.  **Response:** JSON oder HTML wird generiert und via Bun's Zero-Copy Stream gesendet.
+Was passiert *exakt*, wenn ein User eine Aktion ausführt?
+
+### Szenario: User sendet Chat-Nachricht (POST /api/chat/send)
+
+```mermaid
+sequenceDiagram
+    participant C as Client (PWA)
+    participant P as Caddy Proxy
+    participant S as Bun Server
+    participant M as Auth Middleware
+    participant H as Handler
+    participant D as Drizzle/SQLite
+    participant WS as Bun Native Pub/Sub
+
+    C->>P: POST /api/chat/send (Cookie: auth_session)
+    P->>P: Check Rate Limit (10 req/s IP)
+    P->>S: Forward Request
+
+    S->>M: authMiddleware()
+    M->>D: SELECT * FROM sessions WHERE id = ?
+    D-->>M: { user_id: 123, expires_at: ... }
+
+    alt Session Invalid
+        M-->>C: 401 Unauthorized
+    else Session Valid
+        M->>M: Verify CSRF Token
+        M->>S: c.set('user', { id: 123 })
+        S->>H: chat.api.post('/send')
+    end
+
+    H->>H: Zod.parse(body) -> { content: "Hi" }
+
+    par Persistence (Async)
+        H->>D: INSERT INTO messages ...
+    and Realtime Broadcast
+        H->>WS: server.publish('general', "Hi")
+        WS-->>C: (To 5000+ connected WebSocket Clients)
+    end
+
+    H-->>C: 200 OK { sent: true }
+```
 
 ---
 
-## 3. Technology Stack & Rationales
+## 4. Design-Entscheidungen & Rechtfertigungen
 
-### 3.1 Runtime: Bun (statt Node.js)
-**Warum?**
-*   **Startup-Time:** Bun startet in Millisekunden. Node.js braucht oft >1s. Wichtig für Restarts.
-*   **Memory Overhead:** Bun's `JSC` Engine verbraucht signifikant weniger RAM pro Objekt als V8 (Node).
-*   **Native Tooling:** Kein `nodemon`, kein `dotenv`, kein `webpack`. Alles ist built-in.
+Hier rechtfertigen wir jede Abweichung vom "Standard".
 
-**Warum nicht Go/Rust?**
-Wir wollten die Developer Experience von TypeScript (Fullstack Type-Safety) beibehalten.
+### 4.1 Warum Bun statt Node.js?
+*   **Startup Time:** Bun startet in <50ms. Node.js braucht oft >500ms. Das ist kritisch für schnelle Restarts auf einem VPS.
+*   **Native WebSockets:** Bun implementiert WebSockets in C++/Zig. Node.js Bibliotheken (`ws`, `socket.io`) laufen im JS-Heap. Bei 5000 Verbindungen spart Bun hunderte MB RAM.
+*   **Tooling:** Bun ist Package Manager, Bundler und Runtime. Wir sparen uns `npm`, `webpack`, `dotenv` und `tsx`. Weniger Dependencies = Weniger RAM.
 
-### 3.2 Database: SQLite WAL (statt PostgreSQL)
-**Warum?**
-*   **Ressourcen:** Postgres benötigt min. 100MB RAM nur für den Idle-Prozess. SQLite ist eine Library, kein Prozess. RAM-Kosten: ~2MB.
-*   **Latenz:** Keine Netzwerk-Sockets. Function Calls statt TCP Roundtrips.
-*   **Concurrency:** Im **WAL-Mode (Write-Ahead Logging)** erlaubt SQLite *einen* Writer und *unendlich viele* Reader gleichzeitig.
+### 4.2 Warum SQLite (WAL) statt PostgreSQL?
+*   **Der Mythos:** "SQLite ist nicht für Production." -> **Falsch.**
+*   **Die Realität:** Im WAL-Mode (Write-Ahead Logging) kann SQLite tausende Reads pro Sekunde bedienen.
+*   **Der Grund:** Postgres verbraucht ~100MB RAM im Leerlauf (Process Overhead). SQLite verbraucht 0MB (es ist eine Library).
+*   **Trade-off:** Wir haben kein Horizontal Scaling. Aber bis wir >100k User haben, reicht ein 4GB RAM VPS für 20€/Monat.
 
-**Was geht nicht?**
-*   **Horizontal Scaling:** SQLite ist an *einen* Node gebunden.
-*   **High-Write Throughput:** Bei >500 parallelen Writes pro Sekunde kann es zu `SQLITE_BUSY` kommen.
-
-### 3.3 Realtime: Bun Native Pub/Sub (statt Socket.io/Redis)
-**Warum?**
-*   **Memory:** Socket.io hält Connection-Status im JS Heap. Bei 5000 Usern platzt der Heap (512MB Limit).
-*   **CPU:** Broadcasts in JS (`for (client of clients) client.send(...)`) blockieren den Event-Loop.
-*   **Lösung:** `ws.publish()` in Bun ist in C++/Zig implementiert. Nachrichten werden "off-main-thread" verteilt.
+### 4.3 Warum HonoX statt Next.js?
+*   **Next.js:** Erfordert Node.js Server oder Vercel. Schwergewichtig (React Server Components Overhead).
+*   **HonoX:** Baut auf Web Standards. Extrem leicht (~15KB). Erlaubt uns, denselben Router für API und SSR zu nutzen.
+*   **Islands Architecture:** Wir senden HTML. JavaScript wird nur dort geladen, wo Interaktion nötig ist (`islands/`). Das spart Bandbreite und CPU beim Client.
 
 ---
 
-## 4. Security Implementation Details
+## 5. Performance Secrets
 
-### 4.1 Authentication (OOM Protection)
-Hashing ist teuer. `Argon2id` (32MB RAM/Hash) ist sicher, aber gefährlich auf kleinen Servern.
-*   **Angriff:** 20 parallele Login-Requests = 640MB RAM -> Crash.
-*   **Mitigation:** Wir nutzen `p-limit` (Queue), um maximal 2 Hashes gleichzeitig zu erlauben. Der Rest wartet.
-*   **Timing Attacks:** Wenn User nicht gefunden wird, berechnen wir einen Hash gegen einen Dummy-String (`$argon2id$...`), um die Antwortzeit anzugleichen.
+Wie erreichen wir diese Performance auf 512MB?
 
-### 4.2 Build-Time Security
-Vite führt Code während des Builds in Node.js aus. `bun:sqlite` crasht in Node.
-*   **Proxy Pattern:** `app/core/db/index.ts` erkennt die Umgebung. Im Build liefert es einen Proxy.
-*   **Strict Mode:** Der Proxy warnt (`console.warn`) bei schreibenden Zugriffen (`insert`, `delete`) während des Builds, da dies auf Side-Effects hinweist ("Leak").
+### 5.1 Native Pub/Sub ("The Pneumatic Tube")
+Statt Nachrichten in einer JS-Schleife zu verteilen (`clients.forEach(c => c.send(msg))`), rufen wir `ws.publish(topic, msg)` auf.
+Bun übernimmt das Broadcasting im nativen Code. Das entlastet den JS Event-Loop komplett.
 
----
+### 5.2 Build-Time DB Proxy
+Damit Vite (das in Node läuft) unsere App bauen kann, obwohl `bun:sqlite` (Native Bun) importiert wird, nutzen wir einen Proxy (`app/core/db/index.ts`).
+Dieser Proxy "fängt" alle DB-Aufrufe während des Builds ab und gibt `undefined` zurück. Das erlaubt SSG ohne DB-Verbindung.
 
-## 5. Architectural Trade-offs ("Was wir NICHT tun")
-
-Wir haben bewusste Entscheidungen *gegen* bestimmte Features getroffen, um das "Lean"-Ziel zu erreichen.
-
-### 5.1 Kein Horizontal Scaling
-**Entscheidung:** Single Node Only.
-**Grund:** Distributed Systems (Redis, Load Balancer, Consensus) benötigen Overhead.
-**Lösung:** Wenn 1 vCPU nicht reicht, skaliere vertikal (Upgrade auf 4GB RAM VPS). Das reicht für 99% aller Apps bis 100k MAU.
-
-### 5.2 Keine Zero-Downtime Deployments
-**Entscheidung:** Kurze Downtime beim Restart (~500ms).
-**Grund:** Rolling Updates erfordern einen Orchestrator (K8s/Docker Swarm) oder komplexes Proxying. Zu schwer für 512MB.
-**Lösung:** Deployment zu Randzeiten oder Akzeptanz des kurzen "Blips".
-
-### 5.3 Kein komplexes ORM (TypeORM/Prisma)
-**Entscheidung:** Drizzle (SQL-like).
-**Grund:** Prisma lädt eine komplette Rust-Binary (~20MB) zur Laufzeit. Drizzle ist Zero-Runtime-Overhead (nur SQL Strings).
+### 5.3 Streaming File Uploads
+Wir laden Dateien nie komplett in den RAM.
+*   **Upload:** Der Stream vom Client wird direkt auf die Festplatte gepiped (`Bun.write`).
+*   **Download:** Wir nutzen `Bun.file(path).stream()`, was "Zero-Copy" Networking ermöglicht (Kernel sendet Datei direkt an Socket).
 
 ---
 
-## 6. Operations Guide
+## 6. Security Architecture
 
-### 6.1 Systemd Configuration
+Sicherheit ist kein Feature, sondern Core.
+
+### 6.1 Authentication Hardening
+*   **Argon2id:** Der Goldstandard für Passwort-Hashing.
+*   **Parameter:** `memoryCost: 32768` (32MB). Sicherheit gegen GPU-Cracking.
+*   **OOM Protection:** Da 32MB viel ist, nutzen wir `p-limit` (`app/core/lib/password.ts`), um maximal 2 parallele Logins zu erlauben. Sonst würde ein Angreifer mit 20 Requests den Server crashen (20 * 32MB > 512MB).
+
+### 6.2 Timing Attack Mitigation
+Angreifer könnten messen, wie lange der Login dauert, um zu erraten, ob ein User existiert.
+*   **Lösung:** Wenn der User nicht gefunden wird, berechnen wir trotzdem einen Hash (gegen einen Dummy-String). Die Antwortzeit bleibt konstant.
+
+### 6.3 Session Cleanup
+Wir nutzen keinen Cron-Job (spart RAM).
+*   **Probabilistik:** Bei jeder Session-Erstellung gibt es eine 1% Chance, dass alte Sessions gelöscht werden (`DELETE FROM sessions WHERE expires < NOW`).
+*   **Vorteil:** Self-Cleaning System ohne externe Prozesse.
+
+---
+
+## 7. Operational Excellence
+
+Wie betreibe ich das Ding?
+
+### 7.1 Caddyfile Erklärung
+```caddyfile
+domain.com {
+    encode zstd gzip          # Kompression spart Traffic
+    rate_limit {              # DDoS Schutz (Layer 7)
+        events 20             # Max 20 Requests
+        window 1s             # Pro Sekunde
+    }
+    reverse_proxy localhost:3000
+}
+```
+
+### 7.2 Systemd Unit
 ```ini
 [Service]
-ExecStart=/var/www/lean-app/lean-server
-# Sicherheitsnetz: Killt den Prozess bevor das OS einfriert
-MemoryMax=400M
-Restart=always
+ExecStart=/app/lean-server
+MemoryMax=400M            # Hard Limit: Kill before Freeze
+Restart=always            # Auto-Recovery
 ```
-
-### 6.2 Caddy (Reverse Proxy)
-Caddy ist essentiell für SSL und Gzip.
-*   **Rate Limit:** Schützt vor simplen DDoS/Script-Kiddies.
-*   **Compression:** `encode zstd gzip` spart massiv Bandbreite.
 
 ---
 
-## 7. Developer Guide: Creating a Feature
+## 8. Developer Guide (How-To)
 
-1.  **Folder:** `app/modules/my-feature`
-2.  **Schema:** Erstelle `schema.ts`. Exportiere Tabelle.
-    *   *Regel:* Nutze `integer('user_id').references(() => users.id)` für Relationen.
-3.  **Registration:** Importiere Schema in `app/db.ts`.
-4.  **API:** Erstelle `api.ts` (Hono Router).
-5.  **Mount:** Registriere Router in `app/api-server.ts`.
-6.  **UI:** Erstelle Islands in `islands/` oder nutze SSR Components.
+### Neues Feature erstellen
+1.  Ordner: `app/modules/mein-feature`
+2.  Schema: `schema.ts` (DB Tabellen)
+3.  API: `api.ts` (Hono Routes)
+4.  UI: `islands/` (Interaktiv) oder `app/components/` (Statisch)
 
-**Wichtig:** Importiere NIEMALS Logik aus anderen Modulen. Nutze die DB als Schnittstelle.
+### Regeln
+*   **Keine Cross-Imports:** Module dürfen keine Logik voneinander importieren.
+*   **Type-Safety:** Imports von `schema.ts` sind erlaubt, um Typen zu teilen.
+*   **Cleanup:** Um ein Feature zu löschen, lösche einfach den Ordner und entferne die Referenz in `app/db.ts`.
+
+---
+
+## 9. FAQ & Troubleshooting
+
+**F: Kann ich das auf AWS Lambda deployen?**
+A: Nein. Dies ist für Stateful VPS (SQLite, WebSockets) designet.
+
+**F: Was passiert, wenn der Server neustartet?**
+A: WebSockets reconnecten automatisch (Client-Side Logic). Downtime ist <500ms.
+
+**F: Warum sehe ich TypeScript Fehler bei `ws.data`?**
+A: Bun's Typen und Hono's Wrapper sind nicht 100% synchron. Wir nutzen `@ts-expect-error` an diesen Stellen. Das ist bekannt und sicher.
+
+---
+
+**LEAN MEAN VPS** - Weil Software effizient sein sollte.
