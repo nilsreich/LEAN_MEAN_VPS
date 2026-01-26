@@ -1,0 +1,142 @@
+/**
+ * ============================================================
+ * LEAN MEAN VPS - Globale Styles
+ * ============================================================
+ * 
+ * TailwindCSS v4 Import - nutzt CSS-first Konfiguration
+ * Optimiert für minimalen Bundle-Size auf Low-Resource VPS
+ * 
+ * @author LEAN_MEAN_VPS
+ * @version 1.0.0
+ */
+
+/* TailwindCSS v4 Import */
+@import "tailwindcss";
+
+/**
+ * Custom Theme Variablen - Modernes 2026 Design (OKLCH)
+ * LEAN & MEAN: Minimaler RAM-Impact durch Verzicht auf schwere Assets
+ */
+@theme {
+  /* OKLCH Farben für modernste Farbdarstellung & hohe Präzision */
+  --color-primary: oklch(0.7 0.18 160);      /* Smaragd-Grün */
+  --color-primary-dark: oklch(0.6 0.2 160);
+  
+  --color-accent: oklch(0.7 0.15 250);       /* Modernes Blau */
+  
+  /* Hintergrundfarben - Deep Black für OLED-Optimierung */
+  --color-bg-dark: oklch(0.12 0.01 250);    /* Fast Schwarz */
+  --color-bg-card: oklch(0.16 0.01 250);    /* Subtiles Grau-Schwarz */
+  
+  /* Textfarben */
+  --color-text-primary: oklch(0.98 0.005 250);
+  --color-text-muted: oklch(0.75 0.01 250);
+  
+  /* Glassmorphism Basiskonstanten */
+  --glass-bg: rgba(20, 20, 20, 0.4);
+  --glass-border: rgba(255, 255, 255, 0.08);
+}
+
+/**
+ * Utility Classes für Glassmorphism (2026 Style)
+ */
+@utility glass-card {
+  background-color: var(--glass-bg);
+  backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  border-radius: 1rem;
+}
+
+@utility glass-button {
+  background-color: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: translateY(-1px);
+  }
+}
+
+@utility text-gradient {
+  background: linear-gradient(135deg, oklch(0.9 0.1 160), oklch(0.7 0.2 250));
+  background-clip: text;
+  color: transparent;
+}
+
+/**
+ * Basis-Styles
+ */
+html {
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-bg-dark);
+  color: var(--color-text-primary);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background-image: 
+    radial-gradient(circle at 0% 0%, oklch(0.2 0.05 160 / 0.1) 0, transparent 40%),
+    radial-gradient(circle at 100% 100%, oklch(0.2 0.05 250 / 0.1) 0, transparent 40%);
+  background-attachment: fixed;
+}
+
+/**
+ * Focus-Styles für Accessibility
+ * Wichtig für Tastaturnavigation
+ */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/**
+ * Scrollbar-Styling (Webkit)
+ * Schlanke, dunkle Scrollbars
+ */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg-dark);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #444;
+}
+
+/**
+ * ============================================================
+ * ANIMATIONEN (2026 Edition)
+ * ============================================================
+ */
+
+@keyframes slide-in {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+.animate-shake {
+  animation: shake 0.3s ease-in-out;
+}
+

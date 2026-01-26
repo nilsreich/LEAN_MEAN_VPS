@@ -1,45 +1,122 @@
-import { eq } from "drizzle-orm";
-import { sign } from "hono/jwt";
-import { createRoute } from "honox/factory";
-import { db } from "../../db";
-import { users } from "../../db/schema";
-import { SECRET } from "../../middleware/auth";
+/**
+ * ============================================================================
+ * LEAN MEAN VPS - Authentication API
+ * ============================================================================
+ *
+ * WAS:
+ * Endpunkte für Sitzungsmanagement (Login, Logout, Register, Identity).
+ *
+ * WIE:
+ * 1. Zod-Validierung: Eingehende JSON-Payloads werden gegen Schemata geprüft.
+ * 2. Argon2id: Passwörter werden sicher gehasht (via Bun.password).
+ * 3. Session-Handling: Nutzt 'createSession' (Kryptografische Session-IDs in DB).
+ * 4. Rate-Limiting: Schützt 'Login' und 'Register' vor Brute-Force Angriffen.
+ * 5. CSRF-Schutz: Alle schreibenden Zugriffe (inkl. Logout) sind geschützt.
+ *
+ * WARUM:
+ * Ein DB-basiertes Session-System ermöglicht den sofortigen Widerruf von
+ * Zugriffen (Revocation) und bietet im Vergleich zu JWTs eine höhere Sicherheit
+ * bei gleichzeitig geringer Komplexität.
+ *
+ * @version 2.2.0
+ * ============================================================================
+ */
 
-// Beispiel: Registrierung (hier wird Argon2id zum Hashen genutzt)
-export const postRegister = createRoute(async (c) => {
-	const { username, password } = await c.req.json();
+import { zValidator } from '@hono/zod-validator';
+import { eq } from 'drizzle-orm';
+import { Hono } from 'hono';
+import { db } from '../../db';
+import { users } from '../../db/schema';
+import { hashPassword, verifyPassword } from '../../lib/password';
+import { loginSchema, registerSchema } from '../../lib/validation';
+import {
+  authMiddleware,
+  clearAuth,
+  createSession,
+  csrfMiddleware,
+  type Env,
+} from '../../middleware/auth';
+import { rateLimiter } from '../../middleware/rateLimit';
 
-	// Bun.password nutzt standardmäßig Argon2id
-	const hashedPassword = await Bun.password.hash(password);
+const auth = new Hono<Env>();
 
-	await db.insert(users).values({
-		username,
-		password: hashedPassword,
-	});
+/**
+ * Registrierung neuer Benutzer mit automatischem Login.
+ * @route POST /api/auth/register
+ */
+auth.post(
+  '/register',
+  rateLimiter({ maxRequests: 5, windowSizeSeconds: 60 }),
+  zValidator('json', registerSchema),
+  async (c) => {
+    const { username, password } = c.req.valid('json');
 
-	return c.json({ success: true }, 201);
+    const existing = await db.query.users.findFirst({
+      where: eq(users.username, username),
+    });
+
+    if (existing) return c.json({ success: false, error: 'Nutzername bereits vergeben' }, 409);
+
+    const hashed = await hashPassword(password);
+    const [newUser] = await db.insert(users).values({ username, passwordHash: hashed }).returning();
+
+    // Auto-Login nach Registrierung
+    await createSession(c, newUser.id, newUser.username);
+
+    return c.json({ success: true, message: 'Registrierung erfolgreich' });
+  },
+);
+
+/**
+ * Anmeldung und Erstellung einer Session.
+ * @route POST /api/auth/login
+ */
+auth.post(
+  '/login',
+  rateLimiter({ maxRequests: 10, windowSizeSeconds: 60 }),
+  zValidator('json', loginSchema),
+  async (c) => {
+    const { username, password } = c.req.valid('json');
+
+    const user = await db.query.users.findFirst({
+      where: eq(users.username, username),
+    });
+
+    if (!user || !(await verifyPassword(password, user.passwordHash))) {
+      return c.json({ success: false, error: 'Ungültige Zugangsdaten' }, 401);
+    }
+
+    await createSession(c, user.id, user.username);
+
+    return c.json({ success: true });
+  },
+);
+
+/**
+ * Abmeldung und Löschen der Session.
+ * @route POST /api/auth/logout
+ */
+auth.post('/logout', authMiddleware, csrfMiddleware, async (c) => {
+  await clearAuth(c);
+  return c.json({ success: true });
 });
 
-export const postLogin = createRoute(async (c) => {
-	const { username, password } = await c.req.json();
-	const user = await db
-		.select()
-		.from(users)
-		.where(eq(users.username, username))
-		.get();
+/**
+ * Gibt Profil-Informationen des aktuell angemeldeten Nutzers zurück.
+ * @route GET /api/auth/me
+ */
+auth.get('/me', authMiddleware, async (c) => {
+  const userId = c.get('userId');
 
-	// Sichere Verifizierung mit Argon2id via Bun native API
-	if (user && (await Bun.password.verify(password, user.password))) {
-		const token = await sign(
-			{
-				id: user.id,
-				username: user.username,
-				exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24,
-			},
-			SECRET,
-			"HS256",
-		);
-		return c.json({ token });
-	}
-	return c.json({ error: "Ungültig" }, 401);
+  // DB-Lookup für aktuelle Stammdaten (Username)
+  const user = await db.query.users.findFirst({
+    where: eq(users.id, userId),
+    columns: { id: true, username: true },
+  });
+
+  if (!user) return c.json({ success: false, error: 'User nicht gefunden' }, 404);
+
+  return c.json({ success: true, user });
 });
+
+export default auth;
