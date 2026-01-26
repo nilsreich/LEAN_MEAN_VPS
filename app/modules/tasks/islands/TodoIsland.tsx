@@ -27,6 +27,7 @@ import { useEffect, useState } from 'hono/jsx';
 import { Badge, Button, Card, Input } from '../../../core/ui';
 import { connectivity, mutationQueue } from '../../../core/lib/offline';
 import { notify } from '../../../islands/ToastIsland';
+import type { Dictionary } from '../../../core/i18n/types';
 
 interface Todo {
   id: number;
@@ -35,7 +36,7 @@ interface Todo {
   createdAt: string;
 }
 
-export default function TodoIsland() {
+export default function TodoIsland({ dict }: { dict: Dictionary['modules']['tasks'] }) {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [newTodo, setNewTodo] = useState('');
   const [loading, setLoading] = useState(false);
@@ -53,7 +54,7 @@ export default function TodoIsland() {
       }
     } catch (_e) {
       if (!connectivity.isOnline()) {
-        notify('Offline: Lade lokale Daten (falls vorhanden)', 'info');
+        notify(dict.offlineLoad, 'info');
       }
     }
   };
@@ -92,7 +93,7 @@ export default function TodoIsland() {
     } catch (_e) {
       if (!connectivity.isOnline()) {
         mutationQueue.add({ url: '/api/tasks', method: 'POST', body });
-        notify('Änderung lokal gespeichert (Offline)', 'warning');
+        notify(dict.offlineSave, 'warning');
 
         // Optimistic Update: Temporär in die Liste aufnehmen
         const optimisticId = Date.now();
@@ -107,7 +108,7 @@ export default function TodoIsland() {
         ]);
         setNewTodo('');
       } else {
-        notify('Fehler beim Hinzufügen des Todos.', 'error');
+        notify(dict.errorAdd, 'error');
       }
     } finally {
       setLoading(false);
@@ -135,7 +136,7 @@ export default function TodoIsland() {
     } catch (_e) {
       if (!connectivity.isOnline()) {
         mutationQueue.add({ url, method: 'PATCH' });
-        notify('Status-Änderung lokal gespeichert', 'warning');
+        notify(dict.offlineStatus, 'warning');
 
         // Optimistic Update
         setTodos((prev) => prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t)));
@@ -156,8 +157,8 @@ export default function TodoIsland() {
   return (
     <Card>
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-xl font-bold text-text">Meine Aufgaben</h3>
-        <Badge color="primary">{todos.length} Todos</Badge>
+        <h3 className="text-xl font-bold text-text">{dict.title}</h3>
+        <Badge color="primary">{todos.length} {dict.badge}</Badge>
       </div>
 
       <form onSubmit={addTodo} className="flex gap-2 mb-6">
@@ -165,17 +166,17 @@ export default function TodoIsland() {
           value={newTodo}
           // biome-ignore lint/suspicious/noExplicitAny: Hono JSX type mismatch
           onChange={(e: any) => setNewTodo(e.target.value)}
-          placeholder="Was gibt es zu tun?"
+          placeholder={dict.placeholder}
           className="flex-1"
         />
         <Button type="submit" disabled={loading}>
-          {loading ? '...' : 'Hinzufügen'}
+          {loading ? '...' : dict.add}
         </Button>
       </form>
 
       <div className="space-y-3">
         {todos.length === 0 && (
-          <p className="text-center text-text-muted py-8 italic">Keine Aufgaben vorhanden.</p>
+          <p className="text-center text-text-muted py-8 italic">{dict.empty}</p>
         )}
         {todos.map((todo) => (
           <div
@@ -190,11 +191,11 @@ export default function TodoIsland() {
                   ? 'bg-primary border-primary text-white'
                   : 'border-white/20 hover:border-primary/50'
               }`}
-              aria-label={todo.completed ? 'Als unerledigt markieren' : 'Als erledigt markieren'}
+              aria-label={todo.completed ? dict.markUncompleted : dict.markCompleted}
             >
               {todo.completed && (
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <title>Erledigt</title>
+                  <title>{dict.completed}</title>
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"

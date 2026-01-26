@@ -26,8 +26,9 @@
 
 import { useEffect, useState } from 'hono/jsx';
 import { Button } from '../core/ui';
+import type { Dictionary } from '../core/i18n/types';
 
-export default function DashboardIsland() {
+export default function DashboardIsland({ dict }: { dict: Dictionary['dashboard']['user'] }) {
   const [user, setUser] = useState<{ username: string } | null>(null);
 
   useEffect(() => {
@@ -81,7 +82,7 @@ export default function DashboardIsland() {
       <div className="hidden md:block text-right">
         <p className="text-sm font-bold text-text-primary capitalize">{user.username}</p>
         <p className="text-[10px] text-primary font-black uppercase tracking-tighter opacity-80">
-          Admin-Level Node
+          {dict.role}
         </p>
       </div>
 
@@ -92,7 +93,7 @@ export default function DashboardIsland() {
         variant="outline"
         className="text-xs py-1.5 px-4 font-bold uppercase tracking-widest border-white/20 hover:border-primary/50 transition-all duration-300"
       >
-        Exit
+        {dict.logout}
       </Button>
     </div>
   );

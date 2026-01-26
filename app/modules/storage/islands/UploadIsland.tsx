@@ -28,6 +28,7 @@ import { useEffect, useState } from 'hono/jsx';
 import { Badge, Card } from '../../../core/ui';
 import { connectivity, mutationQueue } from '../../../core/lib/offline';
 import { notify } from '../../../islands/ToastIsland';
+import type { Dictionary } from '../../../core/i18n/types';
 
 interface FileInfo {
   id: string;
@@ -36,7 +37,7 @@ interface FileInfo {
   createdAt: string;
 }
 
-export default function UploadIsland() {
+export default function UploadIsland({ dict }: { dict: Dictionary['modules']['storage'] }) {
   const [files, setFiles] = useState<FileInfo[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -53,7 +54,7 @@ export default function UploadIsland() {
       }
     } catch (_e) {
       if (!connectivity.isOnline()) {
-        notify('Offline: Dateiliste eingeschränkt', 'info');
+        notify(dict.listOffline, 'info');
       }
     }
   };
@@ -72,7 +73,7 @@ export default function UploadIsland() {
     if (!file) return;
 
     if (!connectivity.isOnline()) {
-      notify('Upload im Offline-Modus nicht möglich.', 'error');
+      notify(dict.uploadOffline, 'error');
       target.value = '';
       return;
     }
@@ -91,14 +92,14 @@ export default function UploadIsland() {
       });
 
       if (res.ok) {
-        notify('Datei erfolgreich hochgeladen', 'success');
+        notify(dict.uploadSuccess, 'success');
         fetchFiles();
       } else {
         const data = await res.json();
-        notify(data.error || 'Upload fehlgeschlagen', 'error');
+        notify(data.error || dict.uploadFailed, 'error');
       }
     } catch (_e) {
-      notify('Netzwerkfehler während des Uploads.', 'error');
+      notify(dict.uploadNetworkError, 'error');
     } finally {
       setLoading(false);
       // Input zurücksetzen, um mehrmaliges Auswählen derselben Datei zu ermöglichen
@@ -110,7 +111,7 @@ export default function UploadIsland() {
    * Löscht eine Datei anhand ihrer ID.
    */
   const deleteFile = async (id: string) => {
-    if (!confirm('Datei wirklich löschen?')) return;
+    if (!confirm(dict.deleteConfirm)) return;
     const url = `/api/storage/${id}`;
     try {
       const res = await fetch(url, {
@@ -120,19 +121,19 @@ export default function UploadIsland() {
         },
       });
       if (res.ok) {
-        notify('Datei gelöscht', 'success');
+        notify(dict.deleteSuccess, 'success');
         fetchFiles();
       } else {
         const data = await res.json();
-        notify(data.error || 'Löschen fehlgeschlagen', 'error');
+        notify(data.error || dict.deleteFailed, 'error');
       }
     } catch (_e) {
       if (!connectivity.isOnline()) {
         mutationQueue.add({ url, method: 'DELETE' });
-        notify('Löschen für späteren Sync gemerkt', 'warning');
+        notify(dict.deleteOffline, 'warning');
         setFiles((prev) => prev.filter((f) => String(f.id) !== id));
       } else {
-        notify('Fehler beim Löschen der Datei', 'error');
+        notify(dict.deleteError, 'error');
       }
     }
   };
@@ -165,7 +166,7 @@ export default function UploadIsland() {
                 viewBox="0 0 24 24"
                 stroke="currentColor"
               >
-                <title>Upload Icon</title>
+                <title>{dict.tooltips.upload}</title>
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -175,9 +176,9 @@ export default function UploadIsland() {
               </svg>
             </div>
             <p className="text-lg font-medium text-text">
-              {loading ? 'Lade hoch...' : 'Datei hierher ziehen oder klicken'}
+              {loading ? dict.uploading : dict.dragDrop}
             </p>
-            <p className="text-sm text-text-muted mt-1">Maximal 10MB pro Datei</p>
+            <p className="text-sm text-text-muted mt-1">{dict.maxSize}</p>
           </div>
         </div>
       </Card>
@@ -193,7 +194,7 @@ export default function UploadIsland() {
                   viewBox="0 0 24 24"
                   stroke="currentColor"
                 >
-                  <title>File Icon</title>
+                  <title>{dict.tooltips.file}</title>
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -208,16 +209,16 @@ export default function UploadIsland() {
               {file.filename}
             </h4>
             <p className="text-xs text-text-muted mb-4">
-              Hochgeladen am {new Date(file.createdAt).toLocaleDateString()}
+              {dict.uploadedAt} {new Date(file.createdAt).toLocaleDateString()}
             </p>
             <div className="flex gap-2">
               <a
                 href={`/api/storage/download/${file.id}`}
                 className="flex-1 bg-white/5 hover:bg-white/10 text-white p-2 rounded-lg flex items-center justify-center transition-colors"
-                aria-label={`Datei ${file.filename} herunterladen`}
+                aria-label={`${dict.tooltips.download} ${file.filename}`}
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <title>Download</title>
+                  <title>{dict.tooltips.download}</title>
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -230,10 +231,10 @@ export default function UploadIsland() {
                 type="button"
                 onClick={() => deleteFile(file.id)}
                 className="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white p-2 rounded-lg flex items-center justify-center transition-all"
-                aria-label={`Datei ${file.filename} löschen`}
+                aria-label={`${dict.tooltips.delete} ${file.filename}`}
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <title>Delete</title>
+                  <title>{dict.tooltips.delete}</title>
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
