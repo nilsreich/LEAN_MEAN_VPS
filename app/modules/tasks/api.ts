@@ -22,10 +22,10 @@
 import { zValidator } from '@hono/zod-validator';
 import { and, eq, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
-import { db } from '../../db';
-import { todos } from '../../db/schema';
-import { numericIdSchema, todoSchema } from '../../lib/validation';
-import { authMiddleware, csrfMiddleware, type Env } from '../../middleware/auth';
+import { db } from '../../core/db';
+import { todos } from './schema';
+import { numericIdSchema, todoSchema } from '../../core/lib/validation';
+import { authMiddleware, csrfMiddleware, type Env } from '../../core/auth/middleware';
 
 const api = new Hono<Env>();
 
@@ -33,8 +33,8 @@ const api = new Hono<Env>();
 api.use('*', authMiddleware);
 
 /**
- * Listet alle Todos des aktuellen Nutzers auf.
- * @route GET /api/todos
+ * Listet alle Aufgaben des aktuellen Nutzers auf.
+ * @route GET /api/tasks
  */
 api.get('/', async (c) => {
   const user = c.get('user');
@@ -46,8 +46,8 @@ api.get('/', async (c) => {
 });
 
 /**
- * Erstellt ein neues Todo.
- * @route POST /api/todos
+ * Erstellt eine neue Aufgabe.
+ * @route POST /api/tasks
  */
 api.post('/', csrfMiddleware, zValidator('json', todoSchema), async (c) => {
   const user = c.get('user');
@@ -65,9 +65,9 @@ api.post('/', csrfMiddleware, zValidator('json', todoSchema), async (c) => {
 });
 
 /**
- * Todo Status umschalten (Toggle).
+ * Status umschalten (Toggle).
  * Optimiert: Single atomic query statt Read-Modify-Write.
- * @route PATCH /api/todos/:id/toggle
+ * @route PATCH /api/tasks/:id/toggle
  */
 api.patch('/:id/toggle', csrfMiddleware, zValidator('param', numericIdSchema), async (c) => {
   const user = c.get('user');
@@ -90,8 +90,8 @@ api.patch('/:id/toggle', csrfMiddleware, zValidator('param', numericIdSchema), a
 });
 
 /**
- * Todo löschen.
- * @route DELETE /api/todos/:id
+ * Aufgabe löschen.
+ * @route DELETE /api/tasks/:id
  */
 api.delete('/:id', csrfMiddleware, zValidator('param', numericIdSchema), async (c) => {
   const user = c.get('user');

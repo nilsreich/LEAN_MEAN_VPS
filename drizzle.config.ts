@@ -13,7 +13,7 @@ import { defineConfig } from "drizzle-kit";
 
 export default defineConfig({
   /* Schema-Pfad */
-  schema: "./app/db/schema.ts",
+  schema: "./app/db.ts",
   /* Output-Verzeichnis für Migrations */
   out: "./drizzle",
   /* Datenbank-Dialekt */

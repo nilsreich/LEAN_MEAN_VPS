@@ -84,6 +84,7 @@ export const Input: FC<{
   id?: string;
   required?: boolean;
   minLength?: number;
+  disabled?: boolean;
 }> = ({
   type = 'text',
   placeholder,
@@ -95,6 +96,7 @@ export const Input: FC<{
   id,
   required,
   minLength,
+  disabled,
 }) => {
   return (
     <input
@@ -103,6 +105,7 @@ export const Input: FC<{
       id={id}
       required={required}
       minLength={minLength}
+      disabled={disabled}
       placeholder={placeholder}
       value={value}
       onChange={onChange}

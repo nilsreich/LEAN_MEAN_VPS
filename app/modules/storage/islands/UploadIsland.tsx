@@ -25,9 +25,9 @@
  */
 
 import { useEffect, useState } from 'hono/jsx';
-import { Badge, Card } from '../components/UI';
-import { connectivity, mutationQueue } from '../lib/offline';
-import { notify } from './ToastIsland';
+import { Badge, Card } from '../../../core/ui';
+import { connectivity, mutationQueue } from '../../../core/lib/offline';
+import { notify } from '../../../islands/ToastIsland';
 
 interface FileInfo {
   id: string;

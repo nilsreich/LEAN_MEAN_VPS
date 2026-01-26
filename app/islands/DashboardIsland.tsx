@@ -25,7 +25,7 @@
  */
 
 import { useEffect, useState } from 'hono/jsx';
-import { Button } from '../components/UI';
+import { Button } from '../core/ui';
 
 export default function DashboardIsland() {
   const [user, setUser] = useState<{ username: string } | null>(null);

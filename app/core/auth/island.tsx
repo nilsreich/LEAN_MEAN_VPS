@@ -21,7 +21,7 @@
  */
 
 import { useState } from 'hono/jsx';
-import { Button, Card, Input } from '../components/UI';
+import { Button, Card, Input } from '../ui';
 
 export default function AuthIsland() {
   const [isLogin, setIsLogin] = useState(true);

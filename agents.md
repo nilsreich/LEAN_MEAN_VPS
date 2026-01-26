@@ -1,80 +1,36 @@
-# 🤖 AI Agents Dokumentation - LEAN MEAN VPS Template
+# 🤖 AI Agents Guide - LEAN MEAN VPS
 
-> Richtlinien für AI-Agenten zur Arbeit mit diesem Framework.
+> **Kontext:** Du arbeitest an einem hochoptimierten System für Low-Resource Umgebungen. Jedes Byte RAM zählt.
 
-## 📋 Projekt-Philosophie (2026 Edition)
+## 🏗️ Architektur-Regeln (Strict)
 
-Dieses Template ist auf **absolute Effizienz** getrimmt. Ziel ist ein Fullstack-System, das auf einem **512MB RAM VPS** stabil läuft und gleichzeitig modernste Sicherheitsstandards erfüllt.
+### 1. Vertical Slices
+*   **Neue Features** gehören IMMER in `app/modules/{feature-name}`.
+*   **Niemals** Business-Logik in `app/core` packen. Core ist Infrastruktur.
+*   **Module-Isolation:** Module dürfen keine Logik voneinander importieren. Nur `schema.ts` Imports (Type-Only) sind erlaubt.
 
-### Kern-Prinzipien
-1. **SSG First**: Seiten werden statisch generiert (HonoX SSG).
-2. **SQLite WAL**: Datenbank ist lokal, typsicher (Drizzle) und performant.
-3. **No Bloat**: Keine unnötigen Bibliotheken. Tailwind 4 + Bun native APIs.
-4. **Islands**: Client-JS nur dort, wo Interaktion stattfindet.
+### 2. UI Komponenten
+*   **Atoms:** `app/core/ui` (Button, Input). Nur dumme, styled Elements.
+*   **Islands:** `app/modules/{name}/islands`. Interaktive (Client-Side) Komponenten.
+*   **Shared SSR:** `app/components`. Layouts, Header, Footer (Stateless).
 
----
+### 3. Datenbank
+*   Jedes Modul definiert sein eigenes Schema in `schema.ts`.
+*   Vergiss nicht, das Schema in `app/db.ts` zu exportieren!
+*   **Niemals** `bun:sqlite` direkt importieren. Nutze immer `app/core/db`.
 
-## 🏗️ Architektur-Flows (Sequence Diagrams)
+## ⚡ Performance Guidelines
 
-### 1. Signup & Auth Flow
-```mermaid
-sequenceDiagram
-    participant U as User (Island)
-    participant A as Auth API
-    participant D as SQLite (Drizzle)
+1.  **Keine WebSockets in JS:** Nutze IMMER `createBunWebSocket` und `ws.publish()` (Native Pub/Sub) für Broadcasts.
+2.  **Auth Queue:** `verifyPassword` ist teuer. Nutze es niemals ungequeued in einer Schleife.
+3.  **Streaming:** Datei-Uploads/Downloads müssen gestreamt werden (`Bun.file().stream()`). Kein `readFileSync`.
 
-    U->>A: POST /register (Username, Pwd)
-    A->>D: Check existing user
-    A->>A: Hash Pwd (Argon2id)
-    A->>D: Insert User
-    A-->>U: 200 OK
-    
-    U->>A: POST /login
-    A->>D: Fetch User Hash
-    A->>A: Verify Hash
-    A->>D: Create Session & CSRF Token
-    A->>A: Create Session & CSRF Token
-    A-->>U: 200 OK + Cookies
-```
+## 🔒 Security Mandates
 
-### 2. Datenbank-Zugriff & CRUD
-```mermaid
-sequenceDiagram
-    participant U as User (Island)
-    participant M as Auth Middleware
-    participant T as Todo API
-    participant D as SQLite
-
-    U->>T: GET /api/todos (Cookie: SessionID)
-    T->>M: Validate SessionID
-    M->>D: Check Session ID
-    M-->>T: Continue (User Context)
-    T->>D: SELECT * FROM todos WHERE userId = X
-    D-->>T: Result Set
-    T-->>U: JSON Response
-```
-
-### 3. File Storage (Lean Design)
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant S as Storage API
-    participant FS as File System (data/uploads)
-    participant D as SQLite (Metadaten)
-
-    U->>S: POST /upload (File + CSRF)
-    S->>S: Validate CSRF & Size
-    S->>FS: Bun.write(uuid, file)
-    S->>D: INSERT INTO uploads (id, filename, size)
-    S-->>U: 200 OK
-```
+1.  **CSRF:** Schreibende APIs (`POST`, `PUT`, `DELETE`) brauchen `csrfMiddleware`.
+2.  **Zod:** Jeder Input muss durch einen Zod-Validator.
+3.  **Timing Attacks:** Nutze Dummy-Verifikation im Login-Flow.
 
 ---
 
-## 🔧 Coding Conventions für Agents
-
-- **Kommentare**: Jede Datei MUSS oben einen Header haben (WAS, WIE, WARUM).
-- **Security**: Nutze IMMER die `authMiddleware` und `csrfMiddleware` für schreibende API-Zugriffe.
-- **UI**: Nutze ausschließlich die Komponenten aus `app/components/UI.tsx`. Keine In-Line Styles.
-- **Framework**: HonoX für Routing & SSG, Bun für Runtime & Hashing.
-
+Verwende diese Richtlinien, um Code zu generieren, der den "Senior Engineer" Standards dieses Repos entspricht.

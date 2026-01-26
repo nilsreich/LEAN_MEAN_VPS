@@ -22,15 +22,28 @@
 import { existsSync, mkdirSync } from 'node:fs';
 import { Hono } from 'hono';
 import { serveStatic } from 'hono/bun';
+import { sql } from 'drizzle-orm';
+import { db } from './core/db';
+import { sessions } from './core/auth/schema';
 
-import auth from './routes/api/auth';
-import events from './routes/api/events';
-import storage from './routes/api/storage';
-import todos from './routes/api/todos';
+import auth from './core/auth/api';
+import chat, { websocket } from './modules/chat/api';
+import storage from './modules/storage/api';
+import tasks from './modules/tasks/api';
 
 // Sicherstellen, dass das Upload-Verzeichnis existiert
 if (!existsSync('data/uploads')) {
   mkdirSync('data/uploads', { recursive: true });
+}
+
+// Initialer Session Cleanup beim Server-Start
+// Verhindert, dass alte Sessions ewig liegen bleiben, wenn wenig Traffic herrscht.
+try {
+  const now = new Date().toISOString();
+  db.delete(sessions).where(sql`${sessions.expiresAt} < ${now}`).run();
+  console.log('[System] Initial session cleanup completed.');
+} catch (e) {
+  // Ignorieren falls DB noch nicht existiert (erster Run)
 }
 
 const app = new Hono();
@@ -40,8 +53,8 @@ const app = new Hono();
  * Evaluierung erfolgt VOR dem statischen Fallback.
  */
 app.route('/api/auth', auth);
-app.route('/api/todos', todos);
-app.route('/api/events', events);
+app.route('/api/tasks', tasks);
+app.route('/api/chat', chat);
 app.route('/api/storage', storage);
 
 /**
@@ -74,5 +87,6 @@ app.get('*', async (c, next) => {
 export default {
   port: Number(process.env.PORT) || 3000,
   fetch: app.fetch,
+  websocket,
   hostname: '0.0.0.0',
 };

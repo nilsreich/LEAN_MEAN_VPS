@@ -24,9 +24,9 @@
  */
 
 import { useEffect, useState } from 'hono/jsx';
-import { Badge, Button, Card, Input } from '../components/UI';
-import { connectivity, mutationQueue } from '../lib/offline';
-import { notify } from './ToastIsland';
+import { Badge, Button, Card, Input } from '../../../core/ui';
+import { connectivity, mutationQueue } from '../../../core/lib/offline';
+import { notify } from '../../../islands/ToastIsland';
 
 interface Todo {
   id: number;
@@ -45,7 +45,7 @@ export default function TodoIsland() {
    */
   const fetchTodos = async () => {
     try {
-      const res = await fetch('/api/todos');
+      const res = await fetch('/api/tasks');
       if (res.ok) {
         const result = await res.json();
         // Erwartet { success: true, data: Todo[] }
@@ -74,7 +74,7 @@ export default function TodoIsland() {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/todos', {
+      const res = await fetch('/api/tasks', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -91,7 +91,7 @@ export default function TodoIsland() {
       }
     } catch (_e) {
       if (!connectivity.isOnline()) {
-        mutationQueue.add({ url: '/api/todos', method: 'POST', body });
+        mutationQueue.add({ url: '/api/tasks', method: 'POST', body });
         notify('Änderung lokal gespeichert (Offline)', 'warning');
 
         // Optimistic Update: Temporär in die Liste aufnehmen
@@ -119,7 +119,7 @@ export default function TodoIsland() {
    * Nutzt den neuen optimierten /toggle Endpunkt.
    */
   const toggleTodo = async (id: number) => {
-    const url = `/api/todos/${id}/toggle`;
+    const url = `/api/tasks/${id}/toggle`;
     try {
       const res = await fetch(url, {
         method: 'PATCH',

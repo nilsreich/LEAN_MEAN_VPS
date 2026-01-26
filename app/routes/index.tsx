@@ -23,7 +23,7 @@
  */
 
 import { createRoute } from 'honox/factory';
-import AuthIsland from '../islands/AuthIsland';
+import AuthIsland from '../core/auth/island';
 
 export default createRoute((c) => {
   return c.render(
