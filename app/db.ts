@@ -2,5 +2,6 @@
 export * from './core/auth/schema';
 
 // Module Tables (Hier werden neue Feature-Tabellen registriert)
-export * from './modules/todos/schema';
+export * from './modules/tasks/schema';
 export * from './modules/storage/schema';
+export * from './modules/chat/schema';

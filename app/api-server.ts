@@ -24,9 +24,9 @@ import { Hono } from 'hono';
 import { serveStatic } from 'hono/bun';
 
 import auth from './core/auth/api';
-import events from './modules/system/api';
+import chat from './modules/chat/api';
 import storage from './modules/storage/api';
-import todos from './modules/todos/api';
+import tasks from './modules/tasks/api';
 
 // Sicherstellen, dass das Upload-Verzeichnis existiert
 if (!existsSync('data/uploads')) {
@@ -40,8 +40,8 @@ const app = new Hono();
  * Evaluierung erfolgt VOR dem statischen Fallback.
  */
 app.route('/api/auth', auth);
-app.route('/api/todos', todos);
-app.route('/api/events', events);
+app.route('/api/tasks', tasks);
+app.route('/api/chat', chat);
 app.route('/api/storage', storage);
 
 /**

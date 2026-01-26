@@ -25,7 +25,8 @@
 
 import { createRoute } from 'honox/factory';
 import DashboardIsland from '../islands/DashboardIsland';
-import TodoIsland from '../modules/todos/islands/TodoIsland';
+import TodoIsland from '../modules/tasks/islands/TodoIsland';
+import ChatIsland from '../modules/chat/islands/ChatIsland';
 import UploadIsland from '../modules/storage/islands/UploadIsland';
 
 export default createRoute(async (c) => {
@@ -76,6 +77,21 @@ export default createRoute(async (c) => {
           </div>
           {/* @ts-expect-error - HonoX Client-Side Directive */}
           <UploadIsland $client:load />
+        </section>
+
+        {/* Module C: Realtime Chat */}
+        <section className="space-y-6 lg:col-span-2">
+          <div className="flex items-center gap-3 px-1">
+             <span className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
+            </span>
+            <h2 className="text-lg font-bold uppercase tracking-widest text-text-muted">
+              Team Communication
+            </h2>
+          </div>
+          {/* @ts-expect-error - HonoX Client-Side Directive */}
+          <ChatIsland $client:load />
         </section>
       </div>
     </main>,

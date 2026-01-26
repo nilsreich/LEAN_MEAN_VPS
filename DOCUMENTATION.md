@@ -1,144 +1,184 @@
-# 📘 LEAN MEAN VPS - Framework Dokumentation (v2.0)
+# 📘 LEAN MEAN VPS - Framework Technical Whitepaper
 
-Ein Walkthrough für Entwickler: Architektur, Funktionsweise und Deployment.
+> **Version:** 2.1.0
+> **Target Audience:** Senior Fullstack Engineers & System Architects
+> **Philosophy:** Zero-Runtime-Bloat, Maximum Hardware Efficiency (512MB RAM), Vertical Slice Architecture.
 
 ---
 
-## 🏗️ Architektur & Funktionsfluss
+## 1. System Architecture
 
-Das Framework basiert auf dem **Vertical Slice** Prinzip mit einer strikten Trennung zwischen **Core** (Infrastruktur) und **Modules** (Features).
+The framework implements a **Vertical Slice Architecture** on top of Bun and Hono. Unlike traditional Layered Architectures (Controller -> Service -> Repo), code is organized by **Feature Modules**.
 
-### 1. Request Flow (Vom Browser zur DB)
-1.  **Caddy (Reverse Proxy):** Empfängt Request (443), terminiert SSL, prüft Rate-Limits.
-2.  **Bun (Runtime):** Startet den Server (`app/api-server.ts`).
-3.  **Hono (Router):**
-    *   Matcht `/api/*` -> Leitet an Module weiter (z.B. `app/modules/todos/api.ts`).
-    *   Matcht `*` -> Liefert statisches HTML aus (`dist/`).
-4.  **Middleware (`app/core/auth/middleware.ts`):**
-    *   Validiert Session-Cookie gegen SQLite DB.
-    *   Setzt `user` Context.
-5.  **Handler (Modul API):** Führt Business-Logik aus (z.B. Todo erstellen).
-6.  **Drizzle (ORM):** Generiert SQL -> Führt Query auf `data/sqlite.db` (WAL Mode) aus.
+### 1.1 High-Level Component Diagram
 
-### 2. Projektstruktur
-```text
-app/
-├── core/                  # 🛡️ UNANTASTBAR (Framework-Basis)
-│   ├── auth/              # Login, Register, Session-Cleanup
-│   ├── db/                # DB-Verbindung & Mocking
-│   ├── ui/                # Generische Komponenten (Button, Card)
-│   └── lib/               # Shared Utils (Zod Schemas, Offline-Sync)
-│
-├── modules/               # 📦 DEINE FEATURES (Business Logic)
-│   ├── todos/             # Beispiel: Task-Manager
-│   ├── storage/           # Beispiel: File-Upload
-│   └── system/            # Beispiel: SSE Monitoring
-│
-├── routes/                # 🚦 Frontend Routing (HonoX)
-│   └── ...                # Pages (.tsx)
-│
-└── db.ts                  # Zentraler Schema-Export
+```mermaid
+graph TD
+    Client[Browser / PWA]
+    LB[Caddy Reverse Proxy]
+    Runtime[Bun Runtime]
+
+    subgraph "Application Core (app/core)"
+        Auth[Auth System]
+        DB_Conn[DB Connection / Pool]
+        UI[Shared UI Lib]
+    end
+
+    subgraph "Feature Modules (app/modules)"
+        Tasks[Tasks Module]
+        Storage[Storage Module]
+        Chat[Chat Module]
+    end
+
+    SQLite[(SQLite WAL)]
+    FS[File System]
+
+    Client -->|HTTPS/443| LB
+    LB -->|HTTP/3000| Runtime
+    Runtime -->|Route: /api/tasks| Tasks
+    Runtime -->|Route: /api/chat| Chat
+    Runtime -->|Route: /api/storage| Storage
+
+    Tasks -->|Drizzle| DB_Conn
+    Chat -->|Drizzle| DB_Conn
+    Storage -->|Bun.write| FS
+
+    DB_Conn -->|libSQL / bun:sqlite| SQLite
 ```
 
-### 3. Core vs. Modules
-*   **Core:** Enthält alles, was für *jede* App nötig ist (Auth, DB-Connection). Ändere dies nur selten.
-*   **Modules:** Hier lebst du. Ein Modul enthält seine eigene API (`api.ts`), sein Datenbankschema (`schema.ts`) und seine UI-Komponenten (`islands/`).
-    *   *Regel:* Um ein Modul zu löschen, lösche einfach den Ordner und entferne den Import in `app/db.ts` und `app/api-server.ts`.
+### 1.2 Request Lifecycle (Sequence)
+
+Typical flow for an authenticated API request (e.g., `POST /api/tasks`):
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as Server (Hono)
+    participant M as Auth Middleware
+    participant H as Route Handler
+    participant D as Drizzle/SQLite
+
+    C->>S: POST /api/tasks (Cookie: session_id)
+    S->>M: invoke authMiddleware()
+
+    M->>D: SELECT * FROM sessions WHERE id = ?
+    D-->>M: Session Record
+
+    alt Session Valid
+        M->>M: Verify CSRF Token (Stateful)
+        M->>S: context.set('user', user)
+        S->>H: invoke handler()
+    else Session Invalid
+        M-->>C: 401 Unauthorized
+    end
+
+    H->>H: Zod Validation (Input)
+    H->>D: INSERT INTO todos ... RETURNING *
+    D-->>H: New Record
+    H-->>C: JSON Response
+```
 
 ---
 
-## 🛠️ Deep Dive: Spezielle Konzepte
+## 2. Core Subsystems Deep Dive
 
-### SQLite Mock & SSG (Warum?)
-**Frage:** *Brauche ich den `bun-sqlite-mock` wirklich?*
-**Antwort:** Ja, für den Build-Prozess.
-*   **Problem:** Vite (unser Build-Tool) führt Code teilweise in einer Node.js-ähnlichen Umgebung aus, um statisches HTML zu generieren (SSG). `bun:sqlite` ist aber eine native Bun-API, die in Node crasht.
-*   **Lösung:** Der Proxy in `app/core/db/index.ts` erkennt, wenn wir nicht in Bun laufen, und liefert ein "Dummy"-Objekt zurück. So läuft der Build durch, ohne dass eine echte DB-Verbindung nötig ist.
-*   **Best Practice:** Erst DB erstellen (`bun x drizzle-kit push`), dann Build. Aber der Mock garantiert, dass der *Code* auch ohne DB importierbar ist.
+### 2.1 Database Abstraction & Build-Time Mocking
 
-### Vite Config & Low-Resource
-Die `vite.config.ts` ist bereits auf `esbuild` (extrem schnell/sparsam) eingestellt.
-*   **Tuning:** Für 512MB RAM ist keine weitere Änderung nötig. Bun managed den Speicher sehr effizient.
+The project uses a unique "Build-Time Proxy" pattern to support Static Site Generation (SSG) via Vite while using native Bun APIs.
+
+*   **Problem:** Vite runs in Node.js (or a Node-compat layer) during the build process. `bun:sqlite` is a native binary module exclusive to the Bun Runtime. Importing it during `vite build` causes a crash.
+*   **Solution:** `app/core/db/index.ts` detects the environment.
+
+```typescript
+// app/core/db/index.ts
+export async function getDb(): Promise<DbType> {
+  // Runtime Detection
+  const isBunRuntime = typeof Bun !== 'undefined';
+
+  if (!isBunRuntime) {
+    // BUILD-TIME MOCK
+    // Returns a Proxy that swallows all calls (e.g. db.select()...)
+    // ensuring imports work but don't execute logic.
+    return createBuildProxy();
+  }
+
+  // RUNTIME
+  const { Database } = await import('bun:sqlite');
+  return drizzle(new Database('data/sqlite.db'));
+}
+```
+
+### 2.2 Security Architecture
+
+#### Authentication (Argon2id)
+We use `Bun.password` which implements Argon2id.
+*   **Memory Cost:** 32MB (configured as `32768`).
+*   **Time Cost:** 3 iterations.
+*   **Rationale:** On a 512MB VPS, dedicating 32MB per login request is the sweet spot between security (resistance to GPU cracking) and stability (preventing OOM kills during concurrent logins).
+
+#### Timing Attack Mitigation
+In `app/core/auth/api.ts`, we implement a "Dummy Verification":
+
+```typescript
+const dummyHash = '$argon2id$...'; // Pre-calculated
+const isValid = await verifyPassword(password, user ? user.passwordHash : dummyHash);
+```
+*   **Mechanism:** Even if a user is not found, the expensive Argon2id verification is executed against a dummy hash.
+*   **Result:** Response time for "User not found" vs "Wrong password" is statistically identical (~300ms), preventing username enumeration.
+
+#### Session Management
+*   **Storage:** SQLite `sessions` table.
+*   **Cleanup:** Probabilistic algorithm (1% chance on creation) triggers `DELETE FROM sessions WHERE expiresAt < NOW()`. This avoids the need for an external Cron daemon.
 
 ---
 
-## 🚀 Operations Guide (VPS Setup)
+## 3. Operations & Deployment
 
-Dein VPS (z.B. 5€/Monat, 512MB RAM) sollte so eingerichtet werden:
+### 3.1 Caddy Configuration (Recommended)
+Caddy serves as the TLS terminator and Edge Layer.
 
-### 1. Caddy (Reverse Proxy)
-Caddy ist effizienter als Nginx bei SSL und Kompression.
-Installiere Caddy und nutze dieses `Caddyfile`:
-
+**`Caddyfile` Optimizations:**
 ```caddyfile
-deine-domain.com {
-    # 1. Kompression (Gzip/Zstd) - Spart Bandbreite
+domain.com {
+    # 1. Zstandard Compression (Faster & better ratio than Gzip)
     encode zstd gzip
 
-    # 2. Hard Rate Limiting (DDoS Schutz)
-    # Erlaubt 10 Requests pro Sekunde pro IP
+    # 2. Hard Rate Limiting (Layer 7 DDoS Protection)
     rate_limit {
         zone lean_vps_limit {
             key {remote_host}
-            events 10
+            events 20
             window 1s
         }
     }
 
-    # 3. Security Headers
-    header {
-        X-Content-Type-Options nosniff
-        X-Frame-Options DENY
-        Referrer-Policy strict-origin-when-cross-origin
-    }
-
-    # 4. Proxy zur Bun App
     reverse_proxy localhost:3000
 }
 ```
-*Tipp:* Rate-Limiting im Framework (`middleware/rateLimit.ts`) ist gut für User-Logik, aber Caddy schützt den Server *bevor* Node/Bun Last erzeugt.
 
-### 2. Systemd Service (Autostart)
-Erstelle `/etc/systemd/system/lean-app.service`:
+### 3.2 Systemd Service
+The application runs as a single binary.
 
 ```ini
-[Unit]
-Description=Lean Mean VPS App
-After=network.target
-
+# /etc/systemd/system/lean-app.service
 [Service]
-Type=simple
-User=root
-WorkingDirectory=/var/www/lean-app
-# Nutze das kompilierte Binary für max. Performance
-ExecStart=/var/www/lean-app/lean-server
-Restart=always
-# RAM Limit (Sicherheitsnetz)
+ExecStart=/path/to/lean-server
+# Critical for 512MB VPS:
 MemoryMax=400M
-
-[Install]
-WantedBy=multi-user.target
+Restart=always
 ```
-
-### 3. Deployment Steps
-1.  Lokal: `bun run build`
-2.  Upload: Kopiere `lean-server` und den `dist/` Ordner auf den VPS.
-3.  VPS: `systemctl restart lean-app`.
 
 ---
 
-## 💡 Developer FAQ
+## 4. Module Development Guide
 
-**Wie füge ich eine Tabelle hinzu?**
-1.  Erstelle `app/modules/mein-feature/schema.ts`.
-2.  Exportiere sie in `app/db.ts`.
-3.  Führe `bun db:push` aus.
+To add a new feature (e.g. "Blog"):
 
-**Wo sind die WebSockets?**
-Wir nutzen **Server-Sent Events (SSE)** in `app/modules/system/api.ts`.
-*   *Warum?* WebSockets halten eine TCP-Verbindung dauerhaft offen (teuer bei vielen Usern). SSE ist One-Way (Server -> Client) über HTTP und deutlich ressourcenschonender für Status-Updates.
+1.  **Create Directory:** `app/modules/blog`
+2.  **Define Schema:** `app/modules/blog/schema.ts` (Export Drizzle tables)
+3.  **Register Schema:** Add `export * from './modules/blog/schema'` to `app/db.ts`.
+4.  **Create API:** `app/modules/blog/api.ts` (Hono instance).
+5.  **Mount API:** Add `app.route('/api/blog', blog)` to `app/api-server.ts`.
+6.  **Develop UI:** Create Islands in `app/modules/blog/islands/`.
 
-**Wie sicher ist das?**
-*   **Auth:** Argon2id (Standard).
-*   **Session:** DB-backed + Probabilistisches Cleanup (1% Chance bei Login).
-*   **Timing Attacks:** Login-Verzögerung ist durch Dummy-Hash-Check angeglichen.
+**Constraint:** Modules MUST NOT import from other modules directly. Use the Database or Event Bus (`app/core/events`) for decoupling.
