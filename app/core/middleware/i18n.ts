@@ -1,5 +1,5 @@
-import { createMiddleware } from 'hono/factory';
 import { getCookie } from 'hono/cookie';
+import { createMiddleware } from 'hono/factory';
 
 export const i18nMiddleware = createMiddleware(async (c, next) => {
   // 1. Check Cookie

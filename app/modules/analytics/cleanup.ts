@@ -4,11 +4,12 @@ import { analyticsVisits } from './schema';
 
 export async function cleanupAnalytics() {
   // 7 Tage in Sekunden
-  const sevenDaysAgo = Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60);
+  const sevenDaysAgo = Math.floor(Date.now() / 1000) - 7 * 24 * 60 * 60;
 
   try {
     // Lösche alte Einträge
-    await db.delete(analyticsVisits)
+    await db
+      .delete(analyticsVisits)
       .where(sql`${analyticsVisits.timestamp} < ${sevenDaysAgo}`)
       .run();
 
@@ -18,7 +19,6 @@ export async function cleanupAnalytics() {
     // Drizzle LibSQL erlaubt oft db.run(sql`...`)
     await db.run(sql`PRAGMA optimize;`);
     console.log('[Analytics] Cleanup: DB Optimized.');
-
   } catch (error) {
     console.error('[Analytics] Cleanup failed:', error);
   }

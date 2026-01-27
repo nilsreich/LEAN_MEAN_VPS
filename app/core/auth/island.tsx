@@ -77,7 +77,12 @@ export default function AuthIsland() {
           <label className="text-sm font-medium text-text-muted ml-1" htmlFor="username">
             {t('auth.username')}
           </label>
-          <Input name="username" id="username" required placeholder={t('auth.usernamePlaceholder')} />
+          <Input
+            name="username"
+            id="username"
+            required
+            placeholder={t('auth.usernamePlaceholder')}
+          />
         </div>
         <div className="space-y-1">
           <label className="text-sm font-medium text-text-muted ml-1" htmlFor="password">

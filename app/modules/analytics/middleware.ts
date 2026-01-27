@@ -3,8 +3,40 @@ import { db } from '../../core/db';
 import { analyticsVisits } from './schema';
 
 const BUFFER_LIMIT = 50;
+const FLUSH_INTERVAL_MS = 60_000;
 type AnalyticsInsert = typeof analyticsVisits.$inferInsert;
 const buffer: AnalyticsInsert[] = [];
+
+/**
+ * Persistiert gepufferte Analytics-Daten in die Datenbank.
+ */
+const flushBuffer = async () => {
+  if (buffer.length === 0) return;
+
+  const chunk = [...buffer];
+  buffer.length = 0; // Clear buffer immediately
+
+  try {
+    await db.insert(analyticsVisits).values(chunk).run();
+  } catch (err) {
+    console.error('[Analytics] Batch insert failed:', err);
+  }
+};
+
+// Regelmäßiger Flush um Datenverlust bei wenig Traffic zu minimieren
+setInterval(() => {
+  void flushBuffer();
+}, FLUSH_INTERVAL_MS);
+
+// Versuch, bei Shutdown noch zu speichern
+// Hinweis: Das ist "Best Effort", da DB-Verbindungen evtl. schon geschlossen werden.
+if (typeof process !== 'undefined') {
+  const cleanup = () => {
+    void flushBuffer();
+  };
+  process.on('SIGINT', cleanup);
+  process.on('SIGTERM', cleanup);
+}
 
 export const analyticsMiddleware: MiddlewareHandler = async (c, next) => {
   // 1. Asynchronität: Erst die Request-Verarbeitung abwarten
@@ -23,10 +55,6 @@ export const analyticsMiddleware: MiddlewareHandler = async (c, next) => {
     // 3. Logic
     const headers = c.req.header();
     const userAgent = headers['user-agent'] || '';
-    // Biome suggests dot notation, but let's stick to bracket for consistency with 'user-agent' which needs it.
-    // However, if Biome complains, I should probably fix it or ignore.
-    // The previous error was: "The computed expression can be simplified without the use of a string literal."
-    // for headers['referer'].
     const referrerUrl = headers.referer;
     const ip = headers['x-forwarded-for']?.split(',')[0] || 'unknown';
 
@@ -69,18 +97,8 @@ export const analyticsMiddleware: MiddlewareHandler = async (c, next) => {
     buffer.push(record);
 
     if (buffer.length >= BUFFER_LIMIT) {
-      const chunk = [...buffer];
-      buffer.length = 0; // Clear buffer immediately
-
-      // Fire-and-Forget Insert
-      db.insert(analyticsVisits)
-        .values(chunk)
-        .run()
-        .catch((err) => {
-          console.error('[Analytics] Batch insert failed:', err);
-        });
+      void flushBuffer();
     }
-
   } catch (err) {
     // Fail silent to not affect main application
     console.error('[Analytics] Middleware error:', err);

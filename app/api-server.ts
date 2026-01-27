@@ -55,9 +55,12 @@ db.delete(sessions)
   });
 
 // Analytics Cleanup Task (täglich)
-setInterval(() => {
-  cleanupAnalytics();
-}, 1000 * 60 * 60 * 24);
+setInterval(
+  () => {
+    cleanupAnalytics();
+  },
+  1000 * 60 * 60 * 24,
+);
 
 const app = new Hono();
 

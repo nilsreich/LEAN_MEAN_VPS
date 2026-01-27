@@ -52,7 +52,6 @@ export default jsxRenderer(({ children, ...props }) => {
         <main className="min-h-screen">{children}</main>
 
         {/* Global UI Islands */}
-        {/* @ts-expect-error - HonoX Client-Side Directive */}
         <ToastIsland />
 
         {/* Client Translations */}

@@ -97,7 +97,7 @@ export default function AnalyticsDashboard() {
                 </div>
                 <div
                   className={`w-full max-w-[40px] rounded-t-sm transition-all duration-500 ${getDeviceColor(
-                    d.name
+                    d.name,
                   )}`}
                   style={{ height: `${height}%` }}
                 />

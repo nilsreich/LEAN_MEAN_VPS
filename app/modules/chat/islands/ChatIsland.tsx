@@ -99,10 +99,9 @@ export default function ChatIsland() {
         </div>
         <select
           value={room}
-          // biome-ignore lint/suspicious/noExplicitAny: Hono JSX event
-          onChange={(e: any) => {
+          onChange={(e) => {
             setMessages([]);
-            setRoom(e.target.value);
+            setRoom((e.target as HTMLSelectElement).value);
           }}
           className="bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-sm text-text outline-none focus:border-primary/50"
         >
@@ -134,7 +133,7 @@ export default function ChatIsland() {
       <form onSubmit={sendMessage} className="mt-4 flex gap-2 pt-4 border-t border-white/10">
         <Input
           value={input}
-          onChange={(e: any) => setInput(e.target.value)}
+          onChange={(e) => setInput((e.target as HTMLInputElement).value)}
           placeholder={`${t('chat.placeholder')}${room}...`}
           className="flex-1"
           disabled={status !== 'connected'}
