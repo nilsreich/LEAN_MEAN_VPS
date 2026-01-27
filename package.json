@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "bun x --bun vite",
-    "build:frontend": "bun x --bun vite build --mode client && bun x --bun vite build",
+    "build:frontend": "bun x --bun vite build --mode client --emptyOutDir && bun x --bun vite build --no-emptyOutDir && bun run compress",
+    "compress": "bun run ./scripts/compress.ts",
     "build:backend": "bun build ./app/api-server.ts --compile --minify --target bun --outfile lean-server",
     "build": "bun run build:frontend && bun run build:backend",
     "start": "./lean-server",
