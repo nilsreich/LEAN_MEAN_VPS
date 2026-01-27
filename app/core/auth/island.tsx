@@ -21,8 +21,8 @@
  */
 
 import { useState } from 'hono/jsx';
-import { Button, Card, Input } from '../ui';
 import type { Dictionary } from '../i18n/types';
+import { Button, Card, Input } from '../ui';
 
 export default function AuthIsland({ dict }: { dict: Dictionary['auth'] }) {
   const [isLogin, setIsLogin] = useState(true);

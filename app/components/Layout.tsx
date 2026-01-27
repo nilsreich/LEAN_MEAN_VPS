@@ -13,8 +13,12 @@ export const Layout: FC<PropsWithChildren<{ title?: string }>> = ({ children, ti
             LEAN <span className="text-emerald-500">MEAN</span> VPS
           </div>
           <nav className="flex gap-4 text-sm font-medium text-zinc-400">
-            <a href="/" className="hover:text-white transition-colors">Home</a>
-            <a href="/dashboard" className="hover:text-white transition-colors">Dashboard</a>
+            <a href="/" className="hover:text-white transition-colors">
+              Home
+            </a>
+            <a href="/dashboard" className="hover:text-white transition-colors">
+              Dashboard
+            </a>
           </nav>
         </div>
       </header>

@@ -1,12 +1,11 @@
+import type { ServerWebSocket } from 'bun';
+import { eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { createBunWebSocket } from 'hono/bun';
-import type { ServerWebSocket } from 'bun';
+import { getCookie } from 'hono/cookie';
+import { sessions, users } from '../../core/auth/schema';
 import { db } from '../../core/db';
 import { messages } from './schema';
-import { users } from '../../core/auth/schema';
-import { eq, and } from 'drizzle-orm';
-import { getCookie } from 'hono/cookie';
-import { sessions } from '../../core/auth/schema';
 
 // Wir definieren den Context für den WebSocket (User-Daten)
 interface WsUserData {
@@ -37,26 +36,29 @@ app.get(
         }
 
         // 2. DB Validation (Ist die Session gültig?)
-        // Wir holen auch gleich den Username für den Broadcast
-        const session = await db.select({
-            userId: sessions.userId,
-            username: users.username,
-            expiresAt: sessions.expiresAt
-          })
+        // KV Lookup: Direkter Zugriff auf den Session-Blob
+        const [record] = await db
+          .select()
           .from(sessions)
-          .innerJoin(users, eq(sessions.userId, users.id))
-          .where(eq(sessions.id, sessionId))
-          .get(); // .get() ist effizienter als limit(1) bei SQLite
+          .where(eq(sessions.key, sessionId))
+          .limit(1);
 
-        if (!session || new Date(session.expiresAt) < new Date()) {
-           ws.close(1008, 'Unauthorized: Invalid Session');
-           return;
+        if (!record) {
+          ws.close(1008, 'Unauthorized: Invalid Session');
+          return;
+        }
+
+        const sessionData = record.value;
+
+        if (new Date(sessionData.expiresAt) < new Date()) {
+          ws.close(1008, 'Unauthorized: Session Expired');
+          return;
         }
 
         // 3. User Context speichern (in ws.data)
         // Das ermöglicht uns Zugriff auf Userdaten im onMessage Handler
         // @ts-expect-error - Bun native property
-        ws.data = { userId: session.userId, username: session.username };
+        ws.data = { userId: sessionData.user.id, username: sessionData.user.username };
 
         // 4. Raum-Abo
         const url = new URL(c.req.url);
@@ -64,7 +66,7 @@ app.get(
 
         // @ts-expect-error - Bun native method
         ws.subscribe(room);
-        console.log(`WS: ${session.username} connected to ${room}`);
+        console.log(`WS: ${sessionData.user.username} connected to ${room}`);
       },
       async onMessage(event, ws) {
         const rawMsg = event.data;
@@ -88,7 +90,7 @@ app.get(
             content: content,
             room: room,
             username: username, // Sicherer Username
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
           };
 
           // @ts-expect-error - Bun native method
@@ -99,11 +101,12 @@ app.get(
 
           // Asynchrones Persistieren (Feuer & Vergessen für Performance)
           // Fehler hier sollten den Chat-Flow nicht blockieren
-          db.insert(messages).values({
-            userId: userId,
-            content: content
-          }).run(); // .run() ist void (schneller als returning)
-
+          db.insert(messages)
+            .values({
+              userId: userId,
+              content: content,
+            })
+            .catch((e) => console.error('Chat Persist Error:', e));
         } catch (e) {
           console.error('WS Error:', e);
         }
@@ -112,7 +115,7 @@ app.get(
         // Cleanup passiert automatisch bei Bun Pub/Sub
       },
     };
-  })
+  }),
 );
 
 /**
@@ -121,17 +124,18 @@ app.get(
 app.get('/history', async (c) => {
   const room = c.req.query('room') || 'general';
 
-  const history = await db.select({
-    id: messages.id,
-    content: messages.content,
-    createdAt: messages.createdAt,
-    userId: messages.userId,
-    username: users.username
-  })
-  .from(messages)
-  .leftJoin(users, eq(messages.userId, users.id))
-  .orderBy(messages.createdAt)
-  .limit(50);
+  const history = await db
+    .select({
+      id: messages.id,
+      content: messages.content,
+      createdAt: messages.createdAt,
+      userId: messages.userId,
+      username: users.username,
+    })
+    .from(messages)
+    .leftJoin(users, eq(messages.userId, users.id))
+    .orderBy(messages.createdAt)
+    .limit(50);
 
   return c.json({ success: true, data: history });
 });

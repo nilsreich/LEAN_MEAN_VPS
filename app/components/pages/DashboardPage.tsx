@@ -1,8 +1,8 @@
+import type { Dictionary } from '../../core/i18n/types';
 import DashboardIsland from '../../islands/DashboardIsland';
-import TodoIsland from '../../modules/tasks/islands/TodoIsland';
 import ChatIsland from '../../modules/chat/islands/ChatIsland';
 import UploadIsland from '../../modules/storage/islands/UploadIsland';
-import type { Dictionary } from '../../core/i18n/types';
+import TodoIsland from '../../modules/tasks/islands/TodoIsland';
 
 export const DashboardPage = ({ dict }: { dict: Dictionary }) => {
   return (
@@ -57,7 +57,7 @@ export const DashboardPage = ({ dict }: { dict: Dictionary }) => {
         {/* Module C: Realtime Chat */}
         <section className="space-y-6 lg:col-span-2">
           <div className="flex items-center gap-3 px-1">
-             <span className="relative flex h-3 w-3">
+            <span className="relative flex h-3 w-3">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
               <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
             </span>

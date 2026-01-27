@@ -20,8 +20,8 @@
  */
 
 import { useEffect, useState } from 'hono/jsx';
-import { connectivity, syncEngine } from '../core/lib/offline';
 import type { Dictionary } from '../core/i18n/types';
+import { connectivity, syncEngine } from '../core/lib/offline';
 
 export type ToastType = 'info' | 'success' | 'error' | 'warning';
 

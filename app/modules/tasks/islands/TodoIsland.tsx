@@ -24,10 +24,10 @@
  */
 
 import { useEffect, useState } from 'hono/jsx';
-import { Badge, Button, Card, Input } from '../../../core/ui';
-import { connectivity, mutationQueue } from '../../../core/lib/offline';
-import { notify } from '../../../islands/ToastIsland';
 import type { Dictionary } from '../../../core/i18n/types';
+import { connectivity, mutationQueue } from '../../../core/lib/offline';
+import { Badge, Button, Card, Input } from '../../../core/ui';
+import { notify } from '../../../islands/ToastIsland';
 
 interface Todo {
   id: number;
@@ -158,7 +158,9 @@ export default function TodoIsland({ dict }: { dict: Dictionary['modules']['task
     <Card>
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-xl font-bold text-text">{dict.title}</h3>
-        <Badge color="primary">{todos.length} {dict.badge}</Badge>
+        <Badge color="primary">
+          {todos.length} {dict.badge}
+        </Badge>
       </div>
 
       <form onSubmit={addTodo} className="flex gap-2 mb-6">

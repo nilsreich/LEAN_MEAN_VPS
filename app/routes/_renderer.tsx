@@ -23,8 +23,8 @@
 
 import { jsxRenderer } from 'hono/jsx-renderer';
 import { Script } from 'honox/server';
-import ToastIsland from '../islands/ToastIsland';
 import type { Dictionary } from '../core/i18n/types';
+import ToastIsland from '../islands/ToastIsland';
 
 interface RendererProps {
   title?: string;

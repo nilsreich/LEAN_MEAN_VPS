@@ -5,7 +5,9 @@ export const LandingPage = ({ dict }: { dict: Dictionary }) => {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center p-6 bg-radial-[at_50%_0%] from-primary/10 to-transparent">
       {/* Language Detection & Persistence */}
-      <script dangerouslySetInnerHTML={{ __html: `
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `
         (function() {
           try {
             var path = window.location.pathname;
@@ -26,7 +28,9 @@ export const LandingPage = ({ dict }: { dict: Dictionary }) => {
             }
           } catch (e) {}
         })();
-      `}} />
+      `,
+        }}
+      />
 
       {/* Hero Section */}
       <div className="text-center mb-16 space-y-4 max-w-2xl">
