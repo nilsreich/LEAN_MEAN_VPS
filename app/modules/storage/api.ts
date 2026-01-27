@@ -28,7 +28,6 @@ import { Hono } from 'hono';
 import { authMiddleware, csrfMiddleware, type Env } from '../../core/auth/middleware';
 import { db } from '../../core/db';
 import { uploadSchema, uuidParamSchema } from '../../core/lib/validation';
-import { rateLimiter } from '../../core/middleware/rateLimit';
 import { uploads } from './schema';
 
 const api = new Hono<Env>();
@@ -52,7 +51,6 @@ const ensureUploadDir = () => {
  */
 api.post(
   '/upload',
-  rateLimiter({ maxRequests: 10, windowSizeSeconds: 60 }), // Schutz gegen DoS
   csrfMiddleware,
   zValidator('form', uploadSchema),
   async (c) => {

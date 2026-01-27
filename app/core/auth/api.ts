@@ -28,7 +28,6 @@ import { Hono } from 'hono';
 import { db } from '../db';
 import { hashPassword, verifyPassword } from '../lib/password';
 import { loginSchema, registerSchema } from '../lib/validation';
-import { rateLimiter } from '../middleware/rateLimit';
 import { authMiddleware, clearAuth, createSession, csrfMiddleware, type Env } from './middleware';
 import { users } from './schema';
 
@@ -40,7 +39,6 @@ const auth = new Hono<Env>();
  */
 auth.post(
   '/register',
-  rateLimiter({ maxRequests: 5, windowSizeSeconds: 60 }),
   zValidator('json', registerSchema),
   async (c) => {
     const { username, password } = c.req.valid('json');
@@ -67,7 +65,6 @@ auth.post(
  */
 auth.post(
   '/login',
-  rateLimiter({ maxRequests: 10, windowSizeSeconds: 60 }),
   zValidator('json', loginSchema),
   async (c) => {
     const { username, password } = c.req.valid('json');
