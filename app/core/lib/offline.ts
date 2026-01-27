@@ -72,6 +72,15 @@ export const mutationQueue = {
   },
 
   /**
+   * Entfernt mehrere Mutationen gleichzeitig (Performance-Optimierung)
+   */
+  removeBatch(ids: string[]): void {
+    if (ids.length === 0) return;
+    const queue = this.getAll().filter((m) => !ids.includes(m.id));
+    localStorage.setItem(this.KEY, JSON.stringify(queue));
+  },
+
+  /**
    * Bereinigt die gesamte Queue
    */
   clear(): void {
@@ -111,6 +120,15 @@ export const syncEngine = {
     let skipped = 0;
 
     const now = Date.now();
+    const processedIds: string[] = [];
+    const BATCH_SIZE = 10;
+
+    const flushProcessed = () => {
+      if (processedIds.length > 0) {
+        mutationQueue.removeBatch(processedIds);
+        processedIds.length = 0; // Clear array in-place
+      }
+    };
 
     for (const task of queue) {
       // 1. MaxAge Check
@@ -118,8 +136,9 @@ export const syncEngine = {
         if (
           !confirm(`Die Aktion "${task.method} ${task.url}" ist über 24h alt. Trotzdem ausführen?`)
         ) {
-          mutationQueue.remove(task.id);
+          processedIds.push(task.id);
           skipped++;
+          if (processedIds.length >= BATCH_SIZE) flushProcessed();
           continue;
         }
       }
@@ -136,8 +155,9 @@ export const syncEngine = {
         });
 
         if (response.ok) {
-          mutationQueue.remove(task.id);
+          processedIds.push(task.id);
           success++;
+          if (processedIds.length >= BATCH_SIZE) flushProcessed();
         } else {
           // Bei Server-Fehler (4xx/5xx) stoppen wir, um FIFO-Integrität zu wahren
           console.error(`Sync failed for task ${task.id}: ${response.status}`);
@@ -150,6 +170,9 @@ export const syncEngine = {
         break; // Stop bei Netzwerkfehler
       }
     }
+
+    // Abschließendes Speichern aller verbleibenden verarbeiteten Tasks
+    flushProcessed();
 
     return { success, failed, skipped };
   },
