@@ -26,7 +26,8 @@ import { serveStatic } from 'hono/bun';
 import auth from './core/auth/api';
 import { sessions } from './core/auth/schema';
 import { db, getDb } from './core/db';
-import chat, { websocket } from './modules/chat/api';
+import { websocket } from './core/ws';
+import chat from './modules/chat/api';
 import storage from './modules/storage/api';
 import tasks from './modules/tasks/api';
 

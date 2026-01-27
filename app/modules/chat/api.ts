@@ -1,19 +1,9 @@
-import type { ServerWebSocket } from 'bun';
 import { eq } from 'drizzle-orm';
 import { Hono } from 'hono';
-import { createBunWebSocket } from 'hono/bun';
-import { getCookie } from 'hono/cookie';
-import { sessions, users } from '../../core/auth/schema';
+import { users } from '../../core/auth/schema';
 import { db } from '../../core/db';
+import { upgradeWebSocket, validateWsConnection } from '../../core/ws';
 import { messages } from './schema';
-
-// Wir definieren den Context für den WebSocket (User-Daten)
-interface WsUserData {
-  userId: number;
-  username: string;
-}
-
-const { upgradeWebSocket, websocket } = createBunWebSocket<ServerWebSocket<WsUserData>>();
 
 const app = new Hono();
 
@@ -23,50 +13,34 @@ const app = new Hono();
  */
 app.get(
   '/ws',
-  upgradeWebSocket((c) => {
+  upgradeWebSocket(async (c) => {
+    // 1. Zentrale Auth Validation
+    const user = await validateWsConnection(c);
+
+    // Wenn Auth fehlschlägt, geben wir einen Handler zurück, der sofort schließt.
+    // Man könnte theoretisch auch undefined zurückgeben, aber Hono/Bun Upgrade erwartet Struktur.
+    if (!user) {
+      return {
+        onOpen(_event, ws) {
+          ws.close(1008, 'Unauthorized');
+        },
+      };
+    }
+
+    // Wenn Auth erfolgreich, geben wir den vollen Chat-Handler zurück
     return {
-      async onOpen(event, ws) {
-        // 1. Auth Check
-        // getCookie holt bei Hono automatisch aus dem Context (c)
-        const sessionId = getCookie(c, 'auth_session');
-
-        if (!sessionId) {
-          ws.close(1008, 'Unauthorized: No Session');
-          return;
-        }
-
-        // 2. DB Validation (Ist die Session gültig?)
-        // KV Lookup: Direkter Zugriff auf den Session-Blob
-        const [record] = await db
-          .select()
-          .from(sessions)
-          .where(eq(sessions.key, sessionId))
-          .limit(1);
-
-        if (!record) {
-          ws.close(1008, 'Unauthorized: Invalid Session');
-          return;
-        }
-
-        const sessionData = record.value;
-
-        if (new Date(sessionData.expiresAt) < new Date()) {
-          ws.close(1008, 'Unauthorized: Session Expired');
-          return;
-        }
-
-        // 3. User Context speichern (in ws.data)
-        // Das ermöglicht uns Zugriff auf Userdaten im onMessage Handler
+      onOpen(event, ws) {
+        // 2. User Context speichern (in ws.data)
         // @ts-expect-error - Bun native property
-        ws.data = { userId: sessionData.user.id, username: sessionData.user.username };
+        ws.data = { userId: user.userId, username: user.username };
 
-        // 4. Raum-Abo
+        // 3. Raum-Abo
         const url = new URL(c.req.url);
         const room = url.searchParams.get('room') || 'general';
 
         // @ts-expect-error - Bun native method
         ws.subscribe(room);
-        console.log(`WS: ${sessionData.user.username} connected to ${room}`);
+        console.log(`WS: ${user.username} connected to ${room}`);
       },
       async onMessage(event, ws) {
         const rawMsg = event.data;
@@ -140,5 +114,5 @@ app.get('/history', async (c) => {
   return c.json({ success: true, data: history });
 });
 
-export { websocket };
+// WICHTIG: Kein Export von 'websocket' mehr, da zentral im Core verwaltet!
 export default app;
