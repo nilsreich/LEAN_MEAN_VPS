@@ -83,7 +83,9 @@ export const analyticsMiddleware: MiddlewareHandler = async (c, next) => {
     // Bun.hash returns a number (uint64)
     const salt = new Date().toDateString(); // "Fri Apr 10 2024" -> Daily Salt
     // ANONYMISIERUNG: Hash erzeugen, in Hex wandeln und auf 8 Zeichen kürzen
-    const visitorHash = Bun.hash(ip + salt).toString(16).substring(0, 8);
+    const visitorHash = Bun.hash(ip + salt)
+      .toString(16)
+      .substring(0, 8);
 
     const record: AnalyticsInsert = {
       path,

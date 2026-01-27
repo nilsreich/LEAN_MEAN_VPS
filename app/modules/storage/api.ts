@@ -20,7 +20,6 @@
  * ============================================================================
  */
 
-import { existsSync, mkdirSync } from 'node:fs';
 import { unlink } from 'node:fs/promises';
 import { zValidator } from '@hono/zod-validator';
 import { and, eq } from 'drizzle-orm';
@@ -36,49 +35,33 @@ const api = new Hono<Env>();
 api.use('*', authMiddleware);
 
 /**
- * Hilfsfunktion: Stellt sicher, dass das Upload-Verzeichnis existiert.
- */
-const ensureUploadDir = () => {
-  const dir = 'data/uploads';
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
-};
-
-/**
  * Upload einer Datei.
  * @route POST /api/storage/upload
  */
-api.post(
-  '/upload',
-  csrfMiddleware,
-  zValidator('form', uploadSchema),
-  async (c) => {
-    const { file } = c.req.valid('form');
-    const user = c.get('user');
+api.post('/upload', csrfMiddleware, zValidator('form', uploadSchema), async (c) => {
+  const { file } = c.req.valid('form');
+  const user = c.get('user');
 
-    ensureUploadDir();
-    const fileId = crypto.randomUUID();
+  const fileId = crypto.randomUUID();
 
-    try {
-      // Bun.write ist effizient für kleine/mittlere Files
-      await Bun.write(`data/uploads/${fileId}`, file);
+  try {
+    // Bun.write ist effizient für kleine/mittlere Files (erstellt Ordner automatisch)
+    await Bun.write(`data/uploads/${fileId}`, file);
 
-      await db.insert(uploads).values({
-        id: fileId,
-        userId: user.id,
-        filename: file.name,
-        mimeType: file.type,
-        size: file.size,
-      });
+    await db.insert(uploads).values({
+      id: fileId,
+      userId: user.id,
+      filename: file.name,
+      mimeType: file.type,
+      size: file.size,
+    });
 
-      return c.json({ success: true, id: fileId });
-    } catch (error) {
-      console.error('[STORAGE] Upload failed:', error);
-      return c.json({ success: false, error: 'Upload fehlgeschlagen' }, 500);
-    }
-  },
-);
+    return c.json({ success: true, id: fileId });
+  } catch (error) {
+    console.error('[STORAGE] Upload failed:', error);
+    return c.json({ success: false, error: 'Upload fehlgeschlagen' }, 500);
+  }
+});
 
 /**
  * Listet alle Uploads des aktuellen Nutzers auf.
