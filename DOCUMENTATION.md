@@ -134,7 +134,6 @@ Dieses Framework ist eine **bewusste Antithese** zu modernen Cloud-Native Stacks
 │  ├───────────────────────────────────────────────────────────────┤    │
 │  │ 1. authMiddleware     → Session Loading & Validation           │    │
 │  │ 2. csrfMiddleware     → CSRF Token Verification                │    │
-│  │ 3. rateLimiter        → IP-basiertes Rate Limiting             │    │
 │  └───────────────────────────────────────────────────────────────┘    │
 │                             ▼                                             │
 │  ┌─────────────────────────────────────────────────────────────────┐   │

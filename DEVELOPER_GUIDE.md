@@ -444,7 +444,7 @@ PAYLOAD: { username: "alice", password: "secret123" }
 │ 1. Path Matching: /api/auth/login                                │
 │ 2. Method Matching: POST                                          │
 │ 3. Route Handler wird aufgerufen:                                │
-│    auth.post('/login', rateLimiter(...), zValidator(...), ...)  │
+│    auth.post('/login', zValidator(...), ...)                    │
 │                                                                   │
 │ WHY: Explizite Routing (nicht dynamisch)                         │
 │      Kein Route-Scanning Overhead                                │
@@ -453,41 +453,16 @@ PAYLOAD: { username: "alice", password: "secret123" }
                               │ Handler Execution
                               ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│ SCHRITT 4: Rate Limiter Middleware                               │
+│ SCHRITT 4: Rate Limiter (Entfernt)                               │
 ├──────────────────────────────────────────────────────────────────┤
 │                                                                   │
-│ rateLimiter({ maxRequests: 10, windowSizeSeconds: 60 })         │
+│ HINWEIS: Application-Level Rate Limiting wurde entfernt.         │
 │                                                                   │
-│ const ip = c.req.header('x-forwarded-for') || 'unknown';        │
-│ const key = `${ip}:/api/auth/login`;                             │
-│ const entry = store.get(key);                                    │
+│ Der Schutz erfolgt nun vollständig auf Infrastruktur-Ebene       │
+│ durch Caddy (siehe Schritt 2).                                   │
 │                                                                   │
-│ if (entry) {                                                     │
-│   if (now - entry.expires > 0) {                                 │
-│     entry.count = 1; // Window abgelaufen, zurücksetzen          │
-│   } else {                                                       │
-│     entry.count++;                                               │
-│     if (entry.count > 10) {                                      │
-│       throw HTTPException(429);  // Blockiert!                   │
-│     }                                                             │
-│   }                                                               │
-│ }                                                                 │
-│                                                                   │
-│ WHY: Brute-Force Schutz                                          │
-│      In-Memory = Ultra-schnell (~1µs pro Request)                │
-│      Auto-Cleanup nach 60s                                       │
-│                                                                   │
-│ Cleanup Mechanismus (Wichtig!):                                  │
-│ ─────────────────────────────                                    │
-│ setInterval(() => {                                              │
-│   const now = Date.now();                                        │
-│   for (const [key, entry] of store) {                            │
-│     if (entry.expires < now) store.delete(key);                  │
-│   }                                                               │
-│ }, 60000); // Alle 60 Sekunden                                   │
-│                                                                   │
-│ WHY Cleanup: Verhindert Memory Leak                              │
-│              Map wächst sonst unbegrenzt                         │
+│ Dies spart CPU-Zyklen in der JavaScript Runtime und hält         │
+│ die Anwendungslogik sauber ("Zero Bloat").                       │
 └──────────────────────────────────────────────────────────────────┘
                               │
                               │ Middleware Passed
