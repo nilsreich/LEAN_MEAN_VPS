@@ -64,7 +64,7 @@ api.post(
 
     try {
       // Bun.write ist effizient für kleine/mittlere Files
-      await Bun.write(`data/uploads/${fileId}`, await file.arrayBuffer());
+      await Bun.write(`data/uploads/${fileId}`, file);
 
       await db.insert(uploads).values({
         id: fileId,
