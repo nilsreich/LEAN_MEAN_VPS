@@ -27,6 +27,9 @@ import auth from './core/auth/api';
 import { sessions } from './core/auth/schema';
 import { db, getDb } from './core/db';
 import { websocket } from './core/ws';
+import analytics from './modules/analytics/api';
+import { cleanupAnalytics } from './modules/analytics/cleanup';
+import { analyticsMiddleware } from './modules/analytics/middleware';
 import chat from './modules/chat/api';
 import storage from './modules/storage/api';
 import tasks from './modules/tasks/api';
@@ -51,7 +54,17 @@ db.delete(sessions)
     // Ignorieren falls DB noch nicht existiert (erster Run) oder KV-Migration läuft
   });
 
+// Analytics Cleanup Task (täglich)
+setInterval(() => {
+  cleanupAnalytics();
+}, 1000 * 60 * 60 * 24);
+
 const app = new Hono();
+
+/**
+ * Global Middlewares
+ */
+app.use('*', analyticsMiddleware);
 
 /**
  * API Routing
@@ -61,6 +74,7 @@ app.route('/api/auth', auth);
 app.route('/api/tasks', tasks);
 app.route('/api/chat', chat);
 app.route('/api/storage', storage);
+app.route('/api/analytics', analytics);
 
 /**
  * Statische Assets & Service Worker
