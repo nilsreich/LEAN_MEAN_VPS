@@ -25,10 +25,10 @@
  */
 
 import { useEffect, useState } from 'hono/jsx';
-import type { Dictionary } from '../core/i18n/types';
+import { t } from '../core/i18n/client';
 import { Button } from '../core/ui';
 
-export default function DashboardIsland({ dict }: { dict: Dictionary['dashboard']['user'] }) {
+export default function DashboardIsland() {
   const [user, setUser] = useState<{ username: string } | null>(null);
 
   useEffect(() => {
@@ -82,7 +82,7 @@ export default function DashboardIsland({ dict }: { dict: Dictionary['dashboard'
       <div className="hidden md:block text-right">
         <p className="text-sm font-bold text-text-primary capitalize">{user.username}</p>
         <p className="text-[10px] text-primary font-black uppercase tracking-tighter opacity-80">
-          {dict.role}
+          {t('dashboard.user.role')}
         </p>
       </div>
 
@@ -93,7 +93,7 @@ export default function DashboardIsland({ dict }: { dict: Dictionary['dashboard'
         variant="outline"
         className="text-xs py-1.5 px-4 font-bold uppercase tracking-widest border-white/20 hover:border-primary/50 transition-all duration-300"
       >
-        {dict.logout}
+        {t('dashboard.user.logout')}
       </Button>
     </div>
   );

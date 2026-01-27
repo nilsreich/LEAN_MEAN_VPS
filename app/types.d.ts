@@ -1,6 +1,10 @@
 import 'hono';
 
 declare module 'hono' {
+  interface ContextVariableMap {
+    lang: string;
+  }
+
   type ContextRenderer = (
     content: string | Promise<string> | JSX.Element,
     props?: { title?: string },

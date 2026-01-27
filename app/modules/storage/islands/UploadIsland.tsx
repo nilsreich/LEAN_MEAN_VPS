@@ -25,7 +25,7 @@
  */
 
 import { useEffect, useState } from 'hono/jsx';
-import type { Dictionary } from '../../../core/i18n/types';
+import { t } from '../../../core/i18n/client';
 import { connectivity, mutationQueue } from '../../../core/lib/offline';
 import { Badge, Card } from '../../../core/ui';
 import { notify } from '../../../islands/ToastIsland';
@@ -37,7 +37,7 @@ interface FileInfo {
   createdAt: string;
 }
 
-export default function UploadIsland({ dict }: { dict: Dictionary['modules']['storage'] }) {
+export default function UploadIsland() {
   const [files, setFiles] = useState<FileInfo[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -54,7 +54,7 @@ export default function UploadIsland({ dict }: { dict: Dictionary['modules']['st
       }
     } catch (_e) {
       if (!connectivity.isOnline()) {
-        notify(dict.listOffline, 'info');
+        notify(t('storage.listOffline'), 'info');
       }
     }
   };
@@ -73,7 +73,7 @@ export default function UploadIsland({ dict }: { dict: Dictionary['modules']['st
     if (!file) return;
 
     if (!connectivity.isOnline()) {
-      notify(dict.uploadOffline, 'error');
+      notify(t('storage.uploadOffline'), 'error');
       target.value = '';
       return;
     }
@@ -92,14 +92,14 @@ export default function UploadIsland({ dict }: { dict: Dictionary['modules']['st
       });
 
       if (res.ok) {
-        notify(dict.uploadSuccess, 'success');
+        notify(t('storage.uploadSuccess'), 'success');
         fetchFiles();
       } else {
         const data = await res.json();
-        notify(data.error || dict.uploadFailed, 'error');
+        notify(data.error || t('storage.uploadFailed'), 'error');
       }
     } catch (_e) {
-      notify(dict.uploadNetworkError, 'error');
+      notify(t('storage.uploadNetworkError'), 'error');
     } finally {
       setLoading(false);
       // Input zurücksetzen, um mehrmaliges Auswählen derselben Datei zu ermöglichen
@@ -111,7 +111,7 @@ export default function UploadIsland({ dict }: { dict: Dictionary['modules']['st
    * Löscht eine Datei anhand ihrer ID.
    */
   const deleteFile = async (id: string) => {
-    if (!confirm(dict.deleteConfirm)) return;
+    if (!confirm(t('storage.deleteConfirm'))) return;
     const url = `/api/storage/${id}`;
     try {
       const res = await fetch(url, {
@@ -121,19 +121,19 @@ export default function UploadIsland({ dict }: { dict: Dictionary['modules']['st
         },
       });
       if (res.ok) {
-        notify(dict.deleteSuccess, 'success');
+        notify(t('storage.deleteSuccess'), 'success');
         fetchFiles();
       } else {
         const data = await res.json();
-        notify(data.error || dict.deleteFailed, 'error');
+        notify(data.error || t('storage.deleteFailed'), 'error');
       }
     } catch (_e) {
       if (!connectivity.isOnline()) {
         mutationQueue.add({ url, method: 'DELETE' });
-        notify(dict.deleteOffline, 'warning');
+        notify(t('storage.deleteOffline'), 'warning');
         setFiles((prev) => prev.filter((f) => String(f.id) !== id));
       } else {
-        notify(dict.deleteError, 'error');
+        notify(t('storage.deleteError'), 'error');
       }
     }
   };
@@ -166,7 +166,7 @@ export default function UploadIsland({ dict }: { dict: Dictionary['modules']['st
                 viewBox="0 0 24 24"
                 stroke="currentColor"
               >
-                <title>{dict.tooltips.upload}</title>
+                <title>{t('storage.tooltips.upload')}</title>
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -176,9 +176,9 @@ export default function UploadIsland({ dict }: { dict: Dictionary['modules']['st
               </svg>
             </div>
             <p className="text-lg font-medium text-text">
-              {loading ? dict.uploading : dict.dragDrop}
+              {loading ? t('storage.uploading') : t('storage.dragDrop')}
             </p>
-            <p className="text-sm text-text-muted mt-1">{dict.maxSize}</p>
+            <p className="text-sm text-text-muted mt-1">{t('storage.maxSize')}</p>
           </div>
         </div>
       </Card>
@@ -194,7 +194,7 @@ export default function UploadIsland({ dict }: { dict: Dictionary['modules']['st
                   viewBox="0 0 24 24"
                   stroke="currentColor"
                 >
-                  <title>{dict.tooltips.file}</title>
+                  <title>{t('storage.tooltips.file')}</title>
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -209,16 +209,16 @@ export default function UploadIsland({ dict }: { dict: Dictionary['modules']['st
               {file.filename}
             </h4>
             <p className="text-xs text-text-muted mb-4">
-              {dict.uploadedAt} {new Date(file.createdAt).toLocaleDateString()}
+              {t('storage.uploadedAt')} {new Date(file.createdAt).toLocaleDateString()}
             </p>
             <div className="flex gap-2">
               <a
                 href={`/api/storage/download/${file.id}`}
                 className="flex-1 bg-white/5 hover:bg-white/10 text-white p-2 rounded-lg flex items-center justify-center transition-colors"
-                aria-label={`${dict.tooltips.download} ${file.filename}`}
+                aria-label={`${t('storage.tooltips.download')} ${file.filename}`}
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <title>{dict.tooltips.download}</title>
+                  <title>{t('storage.tooltips.download')}</title>
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -231,10 +231,10 @@ export default function UploadIsland({ dict }: { dict: Dictionary['modules']['st
                 type="button"
                 onClick={() => deleteFile(file.id)}
                 className="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white p-2 rounded-lg flex items-center justify-center transition-all"
-                aria-label={`${dict.tooltips.delete} ${file.filename}`}
+                aria-label={`${t('storage.tooltips.delete')} ${file.filename}`}
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <title>{dict.tooltips.delete}</title>
+                  <title>{t('storage.tooltips.delete')}</title>
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"

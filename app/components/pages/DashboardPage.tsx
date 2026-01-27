@@ -11,14 +11,14 @@ export const DashboardPage = ({ dict }: { dict: Dictionary }) => {
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-white/10 pb-10">
         <div className="space-y-1">
           <h1 className="text-4xl font-black text-gradient uppercase tracking-tight">
-            {dict.dashboard.header.title}
+            {dict['dashboard.header.title']}
           </h1>
-          <p className="text-text-muted font-medium">{dict.dashboard.header.subtitle}</p>
+          <p className="text-text-muted font-medium">{dict['dashboard.header.subtitle']}</p>
         </div>
 
         <div className="flex items-center">
           {/* @ts-expect-error - HonoX Client-Side Directive */}
-          <DashboardIsland dict={dict.dashboard.user} $client:load />
+          <DashboardIsland $client:load />
         </div>
       </header>
 
@@ -32,11 +32,11 @@ export const DashboardPage = ({ dict }: { dict: Dictionary }) => {
               <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
             </span>
             <h2 className="text-lg font-bold uppercase tracking-widest text-text-muted">
-              {dict.dashboard.modules.tasks}
+              {dict['dashboard.modules.tasks']}
             </h2>
           </div>
           {/* @ts-expect-error - HonoX Client-Side Directive */}
-          <TodoIsland dict={dict.modules.tasks} $client:load />
+          <TodoIsland $client:load />
         </section>
 
         {/* Module B: Security Storage */}
@@ -47,11 +47,11 @@ export const DashboardPage = ({ dict }: { dict: Dictionary }) => {
               <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
             </span>
             <h2 className="text-lg font-bold uppercase tracking-widest text-text-muted">
-              {dict.dashboard.modules.storage}
+              {dict['dashboard.modules.storage']}
             </h2>
           </div>
           {/* @ts-expect-error - HonoX Client-Side Directive */}
-          <UploadIsland dict={dict.modules.storage} $client:load />
+          <UploadIsland $client:load />
         </section>
 
         {/* Module C: Realtime Chat */}
@@ -62,11 +62,11 @@ export const DashboardPage = ({ dict }: { dict: Dictionary }) => {
               <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
             </span>
             <h2 className="text-lg font-bold uppercase tracking-widest text-text-muted">
-              {dict.dashboard.modules.chat}
+              {dict['dashboard.modules.chat']}
             </h2>
           </div>
           {/* @ts-expect-error - HonoX Client-Side Directive */}
-          <ChatIsland dict={dict.modules.chat} $client:load />
+          <ChatIsland $client:load />
         </section>
       </div>
     </main>

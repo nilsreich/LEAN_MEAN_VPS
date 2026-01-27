@@ -21,10 +21,10 @@
  */
 
 import { useState } from 'hono/jsx';
-import type { Dictionary } from '../i18n/types';
+import { t } from '../i18n/client';
 import { Button, Card, Input } from '../ui';
 
-export default function AuthIsland({ dict }: { dict: Dictionary['auth'] }) {
+export default function AuthIsland() {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,10 +52,10 @@ export default function AuthIsland({ dict }: { dict: Dictionary['auth'] }) {
       if (res.ok) {
         window.location.href = '/dashboard';
       } else {
-        setError(result.error || dict.errorGeneric);
+        setError(result.error || t('auth.errorGeneric'));
       }
     } catch (_err) {
-      setError(dict.errorNetwork);
+      setError(t('auth.errorNetwork'));
     } finally {
       setLoading(false);
     }
@@ -65,23 +65,23 @@ export default function AuthIsland({ dict }: { dict: Dictionary['auth'] }) {
     <Card className="w-full max-w-md mx-auto">
       <div className="text-center mb-8">
         <h2 className="text-2xl font-bold text-text">
-          {isLogin ? dict.loginTitle : dict.registerTitle}
+          {isLogin ? t('auth.loginTitle') : t('auth.registerTitle')}
         </h2>
         <p className="text-text-muted mt-2">
-          {isLogin ? dict.loginSubtitle : dict.registerSubtitle}
+          {isLogin ? t('auth.loginSubtitle') : t('auth.registerSubtitle')}
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1">
           <label className="text-sm font-medium text-text-muted ml-1" htmlFor="username">
-            {dict.username}
+            {t('auth.username')}
           </label>
-          <Input name="username" id="username" required placeholder={dict.usernamePlaceholder} />
+          <Input name="username" id="username" required placeholder={t('auth.usernamePlaceholder')} />
         </div>
         <div className="space-y-1">
           <label className="text-sm font-medium text-text-muted ml-1" htmlFor="password">
-            {dict.password}
+            {t('auth.password')}
           </label>
           <Input
             name="password"
@@ -89,7 +89,7 @@ export default function AuthIsland({ dict }: { dict: Dictionary['auth'] }) {
             type="password"
             required
             minLength={8}
-            placeholder={dict.passwordPlaceholder}
+            placeholder={t('auth.passwordPlaceholder')}
           />
         </div>
 
@@ -102,7 +102,7 @@ export default function AuthIsland({ dict }: { dict: Dictionary['auth'] }) {
         <Button type="submit" className="w-full py-4 text-lg" disabled={loading}>
           {loading ? (
             <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-              <title>{dict.loading}</title>
+              <title>{t('auth.loading')}</title>
               <circle
                 className="opacity-25"
                 cx="12"
@@ -118,9 +118,9 @@ export default function AuthIsland({ dict }: { dict: Dictionary['auth'] }) {
               />
             </svg>
           ) : isLogin ? (
-            dict.loginButton
+            t('auth.loginButton')
           ) : (
-            dict.registerButton
+            t('auth.registerButton')
           )}
         </Button>
       </form>
@@ -131,7 +131,7 @@ export default function AuthIsland({ dict }: { dict: Dictionary['auth'] }) {
           onClick={() => setIsLogin(!isLogin)}
           className="text-primary hover:underline text-sm font-medium"
         >
-          {isLogin ? dict.switchToRegister : dict.switchToLogin}
+          {isLogin ? t('auth.switchToRegister') : t('auth.switchToLogin')}
         </button>
       </div>
     </Card>

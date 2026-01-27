@@ -1,0 +1,15 @@
+export const tasksEn = {
+  'tasks.title': 'My Tasks',
+  'tasks.badge': 'Todos',
+  'tasks.placeholder': 'What needs to be done?',
+  'tasks.add': 'Add',
+  'tasks.empty': 'No tasks available.',
+  'tasks.completed': 'Completed',
+  'tasks.markUncompleted': 'Mark as uncompleted',
+  'tasks.markCompleted': 'Mark as completed',
+  'tasks.offlineLoad': 'Offline: Loading local data (if available)',
+  'tasks.offlineSave': 'Change saved locally (Offline)',
+  'tasks.errorAdd': 'Error adding todo.',
+  'tasks.offlineStatus': 'Status change saved locally',
+  'tasks.errorServer': 'Server error',
+};

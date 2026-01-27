@@ -24,7 +24,7 @@
  */
 
 import { useEffect, useState } from 'hono/jsx';
-import type { Dictionary } from '../../../core/i18n/types';
+import { t } from '../../../core/i18n/client';
 import { connectivity, mutationQueue } from '../../../core/lib/offline';
 import { Badge, Button, Card, Input } from '../../../core/ui';
 import { notify } from '../../../islands/ToastIsland';
@@ -36,7 +36,7 @@ interface Todo {
   createdAt: string;
 }
 
-export default function TodoIsland({ dict }: { dict: Dictionary['modules']['tasks'] }) {
+export default function TodoIsland() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [newTodo, setNewTodo] = useState('');
   const [loading, setLoading] = useState(false);
@@ -54,7 +54,7 @@ export default function TodoIsland({ dict }: { dict: Dictionary['modules']['task
       }
     } catch (_e) {
       if (!connectivity.isOnline()) {
-        notify(dict.offlineLoad, 'info');
+        notify(t('tasks.offlineLoad'), 'info');
       }
     }
   };
@@ -93,7 +93,7 @@ export default function TodoIsland({ dict }: { dict: Dictionary['modules']['task
     } catch (_e) {
       if (!connectivity.isOnline()) {
         mutationQueue.add({ url: '/api/tasks', method: 'POST', body });
-        notify(dict.offlineSave, 'warning');
+        notify(t('tasks.offlineSave'), 'warning');
 
         // Optimistic Update: Temporär in die Liste aufnehmen
         const optimisticId = Date.now();
@@ -108,7 +108,7 @@ export default function TodoIsland({ dict }: { dict: Dictionary['modules']['task
         ]);
         setNewTodo('');
       } else {
-        notify(dict.errorAdd, 'error');
+        notify(t('tasks.errorAdd'), 'error');
       }
     } finally {
       setLoading(false);
@@ -136,7 +136,7 @@ export default function TodoIsland({ dict }: { dict: Dictionary['modules']['task
     } catch (_e) {
       if (!connectivity.isOnline()) {
         mutationQueue.add({ url, method: 'PATCH' });
-        notify(dict.offlineStatus, 'warning');
+        notify(t('tasks.offlineStatus'), 'warning');
 
         // Optimistic Update
         setTodos((prev) => prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t)));
@@ -157,9 +157,9 @@ export default function TodoIsland({ dict }: { dict: Dictionary['modules']['task
   return (
     <Card>
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-xl font-bold text-text">{dict.title}</h3>
+        <h3 className="text-xl font-bold text-text">{t('tasks.title')}</h3>
         <Badge color="primary">
-          {todos.length} {dict.badge}
+          {todos.length} {t('tasks.badge')}
         </Badge>
       </div>
 
@@ -168,17 +168,17 @@ export default function TodoIsland({ dict }: { dict: Dictionary['modules']['task
           value={newTodo}
           // biome-ignore lint/suspicious/noExplicitAny: Hono JSX type mismatch
           onChange={(e: any) => setNewTodo(e.target.value)}
-          placeholder={dict.placeholder}
+          placeholder={t('tasks.placeholder')}
           className="flex-1"
         />
         <Button type="submit" disabled={loading}>
-          {loading ? '...' : dict.add}
+          {loading ? '...' : t('tasks.add')}
         </Button>
       </form>
 
       <div className="space-y-3">
         {todos.length === 0 && (
-          <p className="text-center text-text-muted py-8 italic">{dict.empty}</p>
+          <p className="text-center text-text-muted py-8 italic">{t('tasks.empty')}</p>
         )}
         {todos.map((todo) => (
           <div
@@ -193,11 +193,11 @@ export default function TodoIsland({ dict }: { dict: Dictionary['modules']['task
                   ? 'bg-primary border-primary text-white'
                   : 'border-white/20 hover:border-primary/50'
               }`}
-              aria-label={todo.completed ? dict.markUncompleted : dict.markCompleted}
+              aria-label={todo.completed ? t('tasks.markUncompleted') : t('tasks.markCompleted')}
             >
               {todo.completed && (
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <title>{dict.completed}</title>
+                  <title>{t('tasks.completed')}</title>
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
