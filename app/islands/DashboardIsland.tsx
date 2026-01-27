@@ -25,8 +25,8 @@
  */
 
 import { useEffect, useState } from 'hono/jsx';
-import { Button } from '../core/ui';
 import type { Dictionary } from '../core/i18n/types';
+import { Button } from '../core/ui';
 
 export default function DashboardIsland({ dict }: { dict: Dictionary['dashboard']['user'] }) {
   const [user, setUser] = useState<{ username: string } | null>(null);

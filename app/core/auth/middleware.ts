@@ -7,19 +7,17 @@
  * Orchestrierung der Session-basierten Authentifizierung und des CSRF-Schutzes.
  *
  * WIE:
- * 1. Session-Management: Nutzt DB-gestützte Sessions (SQLite).
- * 2. Performance-Optimierung: Die Session wird in der 'authMiddleware' geladen
- *    und im Context (c.set('session')) gecached, um redundante DB-Lookups in
- *    der 'csrfMiddleware' zu vermeiden.
+ * 1. Session-Management: Nutzt DB-gestützte Sessions (LibSQL/KV).
+ * 2. Performance-Optimierung: Die Session wird als JSON-Blob (Key-Value) geladen.
+ *    Kein Join mehr nötig - User-Daten sind denormalisiert im Session-Blob.
  * 3. Auto-Cleanup: Expired Sessions werden bei Erkennung sofort aus der DB gelöscht.
  * 4. CSRF-Protection: Validiert 'X-CSRF-Token' gegen den Session-Record.
  * 5. Security: Verwendet kryptografisch sichere Zufallswerte (CSPRNG).
  *
  * WARUM:
- * Minimiert DB-I/O durch Caching im Context und hält die Datenbank sauber,
- * indem verwaiste Sessions proaktiv entfernt werden.
+ * Minimiert DB-I/O durch direkten Key-Lookup und vermeidet Joins.
  *
- * @version 1.2.0
+ * @version 1.3.0
  * ============================================================================
  */
 
@@ -27,12 +25,7 @@ import { eq, sql } from 'drizzle-orm';
 import type { Context, Next } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { db } from '../db';
-import { sessions } from './schema';
-
-/**
- * Inferierter Typ für eine Session aus dem Schema.
- */
-type SessionRecord = typeof sessions.$inferSelect;
+import { type SessionData, sessions } from './schema';
 
 /**
  * Globales Environment-Interface für Hono.
@@ -41,7 +34,7 @@ export type Env = {
   Variables: {
     userId: number;
     user: { id: number; username: string };
-    session: SessionRecord;
+    session: SessionData;
   };
 };
 
@@ -60,23 +53,31 @@ function generateSecureToken(bytes = 32): string {
 
 /**
  * Erstellt eine neue Session und setzt die entsprechenden Cookies.
+ * Speichert User-Daten denormalisiert im Session-Blob.
  */
-export async function createSession(c: Context, userId: number) {
+export async function createSession(c: Context, user: { id: number; username: string }) {
   const sessionId = crypto.randomUUID();
   const csrfToken = generateSecureToken(); // Explizites CSPRNG Hex-Token
 
   // Probabilistisches Cleanup (1% Chance)
   // Löscht abgelaufene Sessions, um die DB klein zu halten
+  // Nutzt json_extract für den Zugriff auf den JSON-Blob
   if (Math.random() < 0.01) {
     const now = new Date().toISOString();
-    await db.delete(sessions).where(sql`${sessions.expiresAt} < ${now}`);
+    await db.delete(sessions).where(sql`json_extract(${sessions.value}, '$.expiresAt') < ${now}`);
   }
 
-  await db.insert(sessions).values({
-    id: sessionId,
-    userId,
+  const sessionData: SessionData = {
+    userId: user.id,
     csrfToken,
     expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString(),
+    createdAt: new Date().toISOString(),
+    user: user,
+  };
+
+  await db.insert(sessions).values({
+    key: sessionId,
+    value: sessionData,
   });
 
   setCookie(c, SESSION_COOKIE, sessionId, {
@@ -100,7 +101,7 @@ export async function createSession(c: Context, userId: number) {
 
 /**
  * Middleware: Authentifiziert den Request via Cookie.
- * Cacht die Session im Context, um Folge-Lookups zu sparen.
+ * Lädt die denormalisierte Session (KV-Lookup).
  */
 export const authMiddleware = async (c: Context<Env>, next: Next) => {
   const sessionId = getCookie(c, SESSION_COOKIE);
@@ -109,32 +110,35 @@ export const authMiddleware = async (c: Context<Env>, next: Next) => {
     return c.redirect('/?error=unauthorized');
   }
 
-  const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
+  // Optimized Key-Lookup (Primary Key Access)
+  const [record] = await db.select().from(sessions).where(eq(sessions.key, sessionId)).limit(1);
 
   // Validierung & Cleanup
-  if (!session) {
+  if (!record) {
     deleteCookie(c, SESSION_COOKIE);
     return c.redirect('/?error=unauthorized');
   }
 
-  if (new Date(session.expiresAt) < new Date()) {
+  const sessionData = record.value;
+
+  if (new Date(sessionData.expiresAt) < new Date()) {
     // Proaktives Löschen abgelaufener Sessions aus der DB
-    await db.delete(sessions).where(eq(sessions.id, sessionId));
+    await db.delete(sessions).where(eq(sessions.key, sessionId));
     deleteCookie(c, SESSION_COOKIE);
     return c.redirect('/?error=session_expired');
   }
 
-  // Context-Injection für Folge-Middleware & Routen
-  c.set('userId', session.userId);
-  c.set('user', { id: session.userId, username: '' }); // Username wird bei Bedarf nachgeladen oder weggelassen
-  c.set('session', session);
+  // Context-Injection (Daten kommen direkt aus dem Blob, kein User-Join nötig)
+  c.set('userId', sessionData.userId);
+  c.set('user', sessionData.user);
+  c.set('session', sessionData);
 
   await next();
 };
 
 /**
  * Middleware: CSRF-Validierung.
- * Nutzt die bereits geladene Session aus dem Context (Performance).
+ * Nutzt die bereits geladene Session aus dem Context.
  */
 export const csrfMiddleware = async (c: Context<Env>, next: Next) => {
   const session = c.get('session');
@@ -157,7 +161,7 @@ export const csrfMiddleware = async (c: Context<Env>, next: Next) => {
 export async function clearAuth(c: Context) {
   const sessionId = getCookie(c, SESSION_COOKIE);
   if (sessionId) {
-    await db.delete(sessions).where(eq(sessions.id, sessionId));
+    await db.delete(sessions).where(eq(sessions.key, sessionId));
   }
   deleteCookie(c, SESSION_COOKIE);
   deleteCookie(c, CSRF_COOKIE);

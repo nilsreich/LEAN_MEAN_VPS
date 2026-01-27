@@ -31,6 +31,7 @@
   },
   "dependencies": {
     "@hono/zod-validator": "^0.7.6",
+    "@libsql/client": "^0.17.0",
     "@tailwindcss/vite": "^4.1.18",
     "drizzle-orm": "^0.45.1",
     "hono": "^4.11.5",

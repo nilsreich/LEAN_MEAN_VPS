@@ -4,30 +4,30 @@
  * ============================================================================
  *
  * WAS:
- * Initialisierung und Export der zentralen Datenbankinstanz (Drizzle + SQLite).
+ * Initialisierung und Export der zentralen Datenbankinstanz (Drizzle + LibSQL).
  *
  * WIE:
  * 1. Runtime-Detection: Erkennt dynamisch, ob die Anwendung in der Bun-Runtime
  *    oder während des statischen Builds (Node.js) ausgeführt wird.
  * 2. Mocking/Proxying: Implementiert ein Proxy-basiertes Mocking-System für
  *    den Build-Prozess. Dies verhindert Abstürze beim Zugriff auf native
- *    Bun-APIs ('bun:sqlite') während des Vite-Bundlings.
- * 3. WAL-Mode: Aktiviert 'Write-Ahead Logging' für SQLite, um parallele
- *    Read/Write-Zugriffe ohne Sperrkonflikte zu ermöglichen.
- * 4. Singleton-Pattern: Stellt sicher, dass pro Applikationsinstanz nur eine
- *    Datenbankverbindung geöffnet wird.
+ *    APIs während des Vite-Bundlings.
+ * 3. LibSQL: Nutzt @libsql/client für verbesserte Performance und Kompatibilität.
+ * 4. Optimierung: Erstellt die 'sessions' Tabelle manuell mit 'WITHOUT ROWID'
+ *    für maximale Key-Value Performance.
  *
  * WARUM:
  * Ermöglicht SSG (Static Site Generation), ohne dass eine aktive Datenbank im
  * Build-Environment vorhanden sein muss, während im Betrieb maximale
- * SQLite-Performance garantiert wird.
+ * Performance garantiert wird.
  *
- * @version 1.1.0
+ * @version 1.2.0
  * ============================================================================
  */
 
 import { existsSync, mkdirSync } from 'node:fs';
-import { drizzle } from 'drizzle-orm/bun-sqlite';
+import { createClient } from '@libsql/client';
+import { drizzle } from 'drizzle-orm/libsql';
 import * as schema from '../../db';
 
 /**
@@ -55,7 +55,9 @@ function createBuildProxy(): DbType {
       // aber Write-Operationen (insert, update, delete) sollten nie im Build passieren.
       const dangerousOps = ['insert', 'update', 'delete', 'run', 'execute'];
       if (typeof prop === 'string' && dangerousOps.includes(prop)) {
-        console.warn(`[WARN] Build-Time DB Write Attempt: db.${prop}() called! This will be ignored but indicates logic leak.`);
+        console.warn(
+          `[WARN] Build-Time DB Write Attempt: db.${prop}() called! This will be ignored but indicates logic leak.`,
+        );
       }
 
       return proxy;
@@ -63,14 +65,14 @@ function createBuildProxy(): DbType {
     apply: (_, __, args) => {
       // Falls der Proxy als Funktion aufgerufen wird
       return proxy;
-    }
+    },
   });
   return proxy as unknown as DbType;
 }
 
 /**
  * Singleton-Getter für die DB-Instanz.
- * Unterscheidet strikt zwischen Build-Time (Proxy) und Runtime (Fail-Fast).
+ * Unterscheidet strikt zwischen Build-Time (Proxy) und Runtime.
  */
 export async function getDb(): Promise<DbType> {
   if (dbInstance) return dbInstance;
@@ -79,42 +81,45 @@ export async function getDb(): Promise<DbType> {
   const isBunRuntime = typeof Bun !== 'undefined';
 
   if (!isBunRuntime) {
-    // Falls 'bun:sqlite' nicht verfügbar ist (Build-Time / Node), nutze Proxy.
+    // Falls Runtime nicht verfügbar ist (Build-Time / Node), nutze Proxy.
     return createBuildProxy();
   }
-
-  // @ts-ignore - Bun-specific
-  const { Database } = await import('bun:sqlite');
 
   // Hardening: Sicherstellen, dass das Datenverzeichnis existiert
   if (!existsSync('data')) {
     mkdirSync('data', { recursive: true });
   }
 
-  // Ab hier: Echte Runtime. Fehler (Rechte, Pfade, Korruption) müssen crashen.
-  const sqlite = new Database('data/sqlite.db');
-  sqlite.exec('PRAGMA journal_mode = WAL;');
-  dbInstance = drizzle(sqlite, { schema });
+  const client = createClient({ url: 'file:data/sqlite.db' });
+
+  // Optimierung: 'sessions' Tabelle als reiner Key-Value Store ohne ROWID
+  // Dies muss manuell geschehen, da Drizzle dies (noch) nicht nativ unterstützt.
+  try {
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS sessions (
+        key TEXT PRIMARY KEY,
+        value BLOB
+      ) WITHOUT ROWID;
+    `);
+  } catch (e) {
+    console.error('[DB] Failed to ensure KV optimizations:', e);
+  }
+
+  dbInstance = drizzle(client, { schema });
   return dbInstance;
 }
 
-// In HonoX / SSG context we might need a sync export for the top-level
-// but for the real app we just need the instance.
-// We'll use a lazy getter for the exported 'db' constant.
+// Lazy Getter für die exportierte 'db' Konstante.
 export const db = new Proxy({} as DbType, {
   get(_, prop) {
     if (!dbInstance) {
       const isBunRuntime = typeof Bun !== 'undefined';
       if (!isBunRuntime) return createBuildProxy()[prop as keyof DbType];
-      
-      // If we are here and dbInstance is null, someone accessed db before initialization in Bun.
-      // This shouldn't happen with proper Hono routing, but we can try to sync-initialize if Bun is available.
-      // @ts-ignore
-      const { Database } = require('bun:sqlite');
-      const sqlite = new Database('data/sqlite.db');
-      sqlite.exec('PRAGMA journal_mode = WAL;');
-      dbInstance = drizzle(sqlite, { schema });
+
+      // Lazy Init für Runtime (ohne Async Setup - dieses sollte via getDb() beim Start erfolgen)
+      const client = createClient({ url: 'file:data/sqlite.db' });
+      dbInstance = drizzle(client, { schema });
     }
     return dbInstance[prop as keyof DbType];
-  }
+  },
 });

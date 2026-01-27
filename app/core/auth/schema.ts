@@ -8,12 +8,21 @@ export const users = sqliteTable('users', {
   createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
+/**
+ * Denormalisierte Session-Daten für den KV-Store.
+ */
+export interface SessionData {
+  userId: number;
+  csrfToken: string;
+  expiresAt: string;
+  createdAt: string;
+  user: {
+    id: number;
+    username: string;
+  };
+}
+
 export const sessions = sqliteTable('sessions', {
-  id: text('id').primaryKey(),
-  userId: integer('user_id')
-    .references(() => users.id, { onDelete: 'cascade' })
-    .notNull(),
-  csrfToken: text('csrf_token').notNull(),
-  expiresAt: text('expires_at').notNull(),
-  createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
+  key: text('key').primaryKey(),
+  value: text('value', { mode: 'json' }).$type<SessionData>().notNull(),
 });

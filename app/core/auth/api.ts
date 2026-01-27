@@ -18,7 +18,7 @@
  * Zugriffen (Revocation) und bietet im Vergleich zu JWTs eine höhere Sicherheit
  * bei gleichzeitig geringer Komplexität.
  *
- * @version 2.2.0
+ * @version 2.3.0
  * ============================================================================
  */
 
@@ -26,17 +26,11 @@ import { zValidator } from '@hono/zod-validator';
 import { eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { db } from '../db';
-import { users } from './schema';
 import { hashPassword, verifyPassword } from '../lib/password';
 import { loginSchema, registerSchema } from '../lib/validation';
-import {
-  authMiddleware,
-  clearAuth,
-  createSession,
-  csrfMiddleware,
-  type Env,
-} from './middleware';
 import { rateLimiter } from '../middleware/rateLimit';
+import { authMiddleware, clearAuth, createSession, csrfMiddleware, type Env } from './middleware';
+import { users } from './schema';
 
 const auth = new Hono<Env>();
 
@@ -61,7 +55,7 @@ auth.post(
     const [newUser] = await db.insert(users).values({ username, passwordHash: hashed }).returning();
 
     // Auto-Login nach Registrierung
-    await createSession(c, newUser.id);
+    await createSession(c, { id: newUser.id, username: newUser.username });
 
     return c.json({ success: true, message: 'Registrierung erfolgreich' });
   },
@@ -84,14 +78,15 @@ auth.post(
 
     // Timing-Attack Mitigation: Immer verifizieren, auch wenn User nicht existiert
     // Nutzung eines Dummy-Hashes (Argon2id, cost=standard)
-    const dummyHash = '$argon2id$v=19$m=32768,t=3,p=1$ZHVtbXlzYWx0ZHVtbXlzYWx0$dummysaltdummysaltdummysaltdummysaltdummy';
+    const dummyHash =
+      '$argon2id$v=19$m=32768,t=3,p=1$ZHVtbXlzYWx0ZHVtbXlzYWx0$dummysaltdummysaltdummysaltdummysaltdummy';
     const isValid = await verifyPassword(password, user ? user.passwordHash : dummyHash);
 
     if (!user || !isValid) {
       return c.json({ success: false, error: 'Ungültige Zugangsdaten' }, 401);
     }
 
-    await createSession(c, user.id);
+    await createSession(c, { id: user.id, username: user.username });
 
     return c.json({ success: true });
   },
@@ -111,13 +106,8 @@ auth.post('/logout', authMiddleware, csrfMiddleware, async (c) => {
  * @route GET /api/auth/me
  */
 auth.get('/me', authMiddleware, async (c) => {
-  const userId = c.get('userId');
-
-  // DB-Lookup für aktuelle Stammdaten (Username)
-  const user = await db.query.users.findFirst({
-    where: eq(users.id, userId),
-    columns: { id: true, username: true },
-  });
+  // Optimization: Kein DB-Lookup nötig, da User-Daten im Session-Blob (KV) liegen
+  const user = c.get('user');
 
   if (!user) return c.json({ success: false, error: 'User nicht gefunden' }, 404);
 

@@ -29,11 +29,13 @@ const limit = pLimit(2);
  * Wir nutzen Argon2id mit 32MB Memory-Cost.
  */
 export async function hashPassword(password: string): Promise<string> {
-  return limit(() => Bun.password.hash(password, {
-    algorithm: 'argon2id',
-    memoryCost: 32768, // 32MB (Sicher & RAM-schonend für 512MB VPS)
-    timeCost: 3, // 3 Iterationen
-  }));
+  return limit(() =>
+    Bun.password.hash(password, {
+      algorithm: 'argon2id',
+      memoryCost: 32768, // 32MB (Sicher & RAM-schonend für 512MB VPS)
+      timeCost: 3, // 3 Iterationen
+    }),
+  );
 }
 
 /**

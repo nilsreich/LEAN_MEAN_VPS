@@ -25,10 +25,10 @@
  */
 
 import { useEffect, useState } from 'hono/jsx';
-import { Badge, Card } from '../../../core/ui';
-import { connectivity, mutationQueue } from '../../../core/lib/offline';
-import { notify } from '../../../islands/ToastIsland';
 import type { Dictionary } from '../../../core/i18n/types';
+import { connectivity, mutationQueue } from '../../../core/lib/offline';
+import { Badge, Card } from '../../../core/ui';
+import { notify } from '../../../islands/ToastIsland';
 
 interface FileInfo {
   id: string;

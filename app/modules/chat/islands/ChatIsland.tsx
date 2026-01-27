@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'hono/jsx';
-import { Button, Card, Input } from '../../../core/ui';
 import type { Dictionary } from '../../../core/i18n/types';
+import { Button, Card, Input } from '../../../core/ui';
 
 interface Message {
   id: number;
@@ -46,13 +46,16 @@ export default function ChatIsland({ dict }: { dict: Dictionary['modules']['chat
       try {
         const msg = JSON.parse(event.data);
         if (msg.type === 'message') {
-          setMessages(prev => [...prev, {
-             id: Date.now(), // Temporäre ID
-             content: msg.content,
-             username: msg.username || 'Anon',
-             createdAt: msg.createdAt,
-             room: msg.room
-          }]);
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: Date.now(), // Temporäre ID
+              content: msg.content,
+              username: msg.username || 'Anon',
+              createdAt: msg.createdAt,
+              room: msg.room,
+            },
+          ]);
         }
       } catch (e) {
         console.error('WS Parse Error', e);
@@ -72,10 +75,12 @@ export default function ChatIsland({ dict }: { dict: Dictionary['modules']['chat
     e.preventDefault();
     if (!input.trim() || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
 
-    wsRef.current.send(JSON.stringify({
-      content: input,
-      room: room
-    }));
+    wsRef.current.send(
+      JSON.stringify({
+        content: input,
+        room: room,
+      }),
+    );
 
     setInput('');
   };
@@ -85,7 +90,9 @@ export default function ChatIsland({ dict }: { dict: Dictionary['modules']['chat
       {/* Header & Room Selector */}
       <div className="flex items-center justify-between pb-4 border-b border-white/10 mb-2">
         <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${status === 'connected' ? 'bg-green-500' : 'bg-red-500'}`} />
+          <div
+            className={`w-2 h-2 rounded-full ${status === 'connected' ? 'bg-green-500' : 'bg-red-500'}`}
+          />
           <span className="text-xs font-bold uppercase tracking-widest text-text-muted">
             {dict.status[status]}
           </span>
@@ -93,7 +100,10 @@ export default function ChatIsland({ dict }: { dict: Dictionary['modules']['chat
         <select
           value={room}
           // biome-ignore lint/suspicious/noExplicitAny: Hono JSX event
-          onChange={(e: any) => { setMessages([]); setRoom(e.target.value); }}
+          onChange={(e: any) => {
+            setMessages([]);
+            setRoom(e.target.value);
+          }}
           className="bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-sm text-text outline-none focus:border-primary/50"
         >
           <option value="general">#general</option>
@@ -105,7 +115,10 @@ export default function ChatIsland({ dict }: { dict: Dictionary['modules']['chat
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto space-y-4 p-2" ref={scrollRef}>
         {messages.map((msg, i) => (
-          <div key={i} className="bg-white/5 p-3 rounded-lg animate-in fade-in slide-in-from-bottom-2">
+          <div
+            key={i}
+            className="bg-white/5 p-3 rounded-lg animate-in fade-in slide-in-from-bottom-2"
+          >
             <div className="flex justify-between items-baseline mb-1">
               <span className="text-sm font-bold text-primary">{msg.username}</span>
               <span className="text-[10px] text-text-muted">

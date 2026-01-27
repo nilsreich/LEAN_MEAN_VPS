@@ -20,13 +20,12 @@
  */
 
 import { existsSync, mkdirSync } from 'node:fs';
+import { sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { serveStatic } from 'hono/bun';
-import { sql } from 'drizzle-orm';
-import { db } from './core/db';
-import { sessions } from './core/auth/schema';
-
 import auth from './core/auth/api';
+import { sessions } from './core/auth/schema';
+import { db, getDb } from './core/db';
 import chat, { websocket } from './modules/chat/api';
 import storage from './modules/storage/api';
 import tasks from './modules/tasks/api';
@@ -36,15 +35,20 @@ if (!existsSync('data/uploads')) {
   mkdirSync('data/uploads', { recursive: true });
 }
 
+// DB Init (Table Creation / Migration Check)
+await getDb();
+
 // Initialer Session Cleanup beim Server-Start
 // Verhindert, dass alte Sessions ewig liegen bleiben, wenn wenig Traffic herrscht.
-try {
-  const now = new Date().toISOString();
-  db.delete(sessions).where(sql`${sessions.expiresAt} < ${now}`).run();
-  console.log('[System] Initial session cleanup completed.');
-} catch (e) {
-  // Ignorieren falls DB noch nicht existiert (erster Run)
-}
+// Hinweis: Wir nutzen IIFE/Promise-Handling, da Top-Level-Await in manchen Contexts heikel sein kann,
+// aber in Bun eigentlich supported ist. Hier sicherheitshalber mit .catch().
+const now = new Date().toISOString();
+db.delete(sessions)
+  .where(sql`json_extract(${sessions.value}, '$.expiresAt') < ${now}`)
+  .then(() => console.log('[System] Initial session cleanup completed.'))
+  .catch(() => {
+    // Ignorieren falls DB noch nicht existiert (erster Run) oder KV-Migration läuft
+  });
 
 const app = new Hono();
 

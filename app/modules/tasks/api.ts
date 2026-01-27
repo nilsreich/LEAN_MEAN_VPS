@@ -22,10 +22,10 @@
 import { zValidator } from '@hono/zod-validator';
 import { and, eq, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
-import { db } from '../../core/db';
-import { todos } from './schema';
-import { numericIdSchema, todoSchema } from '../../core/lib/validation';
 import { authMiddleware, csrfMiddleware, type Env } from '../../core/auth/middleware';
+import { db } from '../../core/db';
+import { numericIdSchema, todoSchema } from '../../core/lib/validation';
+import { todos } from './schema';
 
 const api = new Hono<Env>();
 
