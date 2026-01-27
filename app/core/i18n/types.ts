@@ -1,111 +1,41 @@
-export interface Dictionary {
-  meta: {
-    title: {
-      landing: string;
-      dashboard: string;
-    };
-  };
-  landing: {
-    hero: {
-      title: string;
-      subtitle: string;
-    };
-    footer: {
-      ram: string;
-      auth: string;
-      ssg: string;
-      copyright: string;
-    };
-  };
-  auth: {
-    loginTitle: string;
-    registerTitle: string;
-    loginSubtitle: string;
-    registerSubtitle: string;
-    username: string;
-    password: string;
-    usernamePlaceholder: string;
-    passwordPlaceholder: string;
-    loginButton: string;
-    registerButton: string;
-    switchToRegister: string;
-    switchToLogin: string;
-    errorGeneric: string;
-    errorNetwork: string;
-    loading: string;
-  };
-  dashboard: {
-    header: {
-      title: string;
-      subtitle: string;
-    };
-    modules: {
-      tasks: string;
-      storage: string;
-      chat: string;
-    };
-    user: {
-      role: string;
-      logout: string;
-    };
-  };
-  modules: {
-    tasks: {
-      title: string;
-      badge: string;
-      placeholder: string;
-      add: string;
-      empty: string;
-      completed: string;
-      markUncompleted: string;
-      markCompleted: string;
-      offlineLoad: string;
-      offlineSave: string;
-      errorAdd: string;
-      offlineStatus: string;
-      errorServer: string;
-    };
-    chat: {
-      status: {
-        connecting: string;
-        connected: string;
-        disconnected: string;
-      };
-      placeholder: string;
-      send: string;
-    };
-    storage: {
-      uploadOffline: string;
-      uploadSuccess: string;
-      uploadFailed: string;
-      uploadNetworkError: string;
-      listOffline: string;
-      deleteConfirm: string;
-      deleteSuccess: string;
-      deleteFailed: string;
-      deleteOffline: string;
-      deleteError: string;
-      uploading: string;
-      dragDrop: string;
-      maxSize: string;
-      uploadedAt: string;
-      tooltips: {
-        upload: string;
-        file: string;
-        download: string;
-        delete: string;
-      };
-    };
-  };
-  toast: {
-    online: string;
-    synced: string;
-    syncFailed: string;
-    offline: string;
-  };
-  client: {
-    updateAvailable: string;
-    updateNow: string;
-    offlineReady: string;
-  };
+export interface CoreDictionary {
+  'meta.title.landing': string;
+  'meta.title.dashboard': string;
+  'landing.hero.title': string;
+  'landing.hero.subtitle': string;
+  'landing.footer.ram': string;
+  'landing.footer.auth': string;
+  'landing.footer.ssg': string;
+  'landing.footer.copyright': string;
+  'auth.loginTitle': string;
+  'auth.registerTitle': string;
+  'auth.loginSubtitle': string;
+  'auth.registerSubtitle': string;
+  'auth.username': string;
+  'auth.password': string;
+  'auth.usernamePlaceholder': string;
+  'auth.passwordPlaceholder': string;
+  'auth.loginButton': string;
+  'auth.registerButton': string;
+  'auth.switchToRegister': string;
+  'auth.switchToLogin': string;
+  'auth.errorGeneric': string;
+  'auth.errorNetwork': string;
+  'auth.loading': string;
+  'dashboard.header.title': string;
+  'dashboard.header.subtitle': string;
+  'dashboard.modules.tasks': string;
+  'dashboard.modules.storage': string;
+  'dashboard.modules.chat': string;
+  'dashboard.user.role': string;
+  'dashboard.user.logout': string;
+  'toast.online': string;
+  'toast.synced': string;
+  'toast.syncFailed': string;
+  'toast.offline': string;
+  'client.updateAvailable': string;
+  'client.updateNow': string;
+  'client.offlineReady': string;
 }
+
+export type Dictionary = CoreDictionary & Record<string, string>;

@@ -23,18 +23,16 @@
 
 import { jsxRenderer } from 'hono/jsx-renderer';
 import { Script } from 'honox/server';
-import type { Dictionary } from '../core/i18n/types';
 import ToastIsland from '../islands/ToastIsland';
 
 interface RendererProps {
   title?: string;
   lang?: string;
-  toastMessages?: Dictionary['toast'];
-  clientMessages?: Dictionary['client'];
+  clientMessages?: Record<string, string>;
 }
 
 export default jsxRenderer(({ children, ...props }) => {
-  const { title, lang, toastMessages, clientMessages } = props as RendererProps;
+  const { title, lang, clientMessages } = props as RendererProps;
   return (
     <html lang={lang || 'de'}>
       <head>
@@ -54,8 +52,8 @@ export default jsxRenderer(({ children, ...props }) => {
         <main className="min-h-screen">{children}</main>
 
         {/* Global UI Islands */}
-        {/* @ts-expect-error - HonoX Client-Side Directive with Props */}
-        <ToastIsland messages={toastMessages} />
+        {/* @ts-expect-error - HonoX Client-Side Directive */}
+        <ToastIsland />
 
         {/* Client Translations */}
         {clientMessages && (

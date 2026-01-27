@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'hono/jsx';
-import type { Dictionary } from '../../../core/i18n/types';
+import { t } from '../../../core/i18n/client';
 import { Button, Card, Input } from '../../../core/ui';
 
 interface Message {
@@ -10,7 +10,7 @@ interface Message {
   room?: string;
 }
 
-export default function ChatIsland({ dict }: { dict: Dictionary['modules']['chat'] }) {
+export default function ChatIsland() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [room, setRoom] = useState('general');
@@ -94,7 +94,7 @@ export default function ChatIsland({ dict }: { dict: Dictionary['modules']['chat
             className={`w-2 h-2 rounded-full ${status === 'connected' ? 'bg-green-500' : 'bg-red-500'}`}
           />
           <span className="text-xs font-bold uppercase tracking-widest text-text-muted">
-            {dict.status[status]}
+            {t(`chat.status.${status}`)}
           </span>
         </div>
         <select
@@ -135,12 +135,12 @@ export default function ChatIsland({ dict }: { dict: Dictionary['modules']['chat
         <Input
           value={input}
           onChange={(e: any) => setInput(e.target.value)}
-          placeholder={`${dict.placeholder}${room}...`}
+          placeholder={`${t('chat.placeholder')}${room}...`}
           className="flex-1"
           disabled={status !== 'connected'}
         />
         <Button type="submit" disabled={status !== 'connected'}>
-          {dict.send}
+          {t('chat.send')}
         </Button>
       </form>
     </Card>

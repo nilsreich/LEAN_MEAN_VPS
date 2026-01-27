@@ -1,16 +1,16 @@
 import { createRoute } from 'honox/factory';
 import { LandingPage } from '../components/pages/LandingPage';
-import { de } from '../core/i18n/de';
+import { getScopedI18n } from '../core/i18n/loader';
 
 export default createRoute((c) => {
+  const dict = getScopedI18n(c);
   return c.render(
-    <LandingPage dict={de} />,
+    <LandingPage dict={dict} />,
     // @ts-expect-error - HonoX Renderer Props
     {
-      title: de.meta.title.landing,
-      lang: 'de',
-      toastMessages: de.toast,
-      clientMessages: de.client,
+      title: dict['meta.title.landing'],
+      lang: c.get('lang'),
+      clientMessages: dict,
     },
   );
 });
