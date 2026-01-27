@@ -14,5 +14,5 @@ export const analyticsVisits = sqliteTable(
   (table) => ({
     timestampIdx: index('idx_analytics_timestamp').on(table.timestamp),
     pathIdx: index('idx_analytics_path').on(table.path),
-  })
+  }),
 );
