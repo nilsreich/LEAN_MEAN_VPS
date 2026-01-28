@@ -22,8 +22,9 @@
 
 import { unlink } from 'node:fs/promises';
 import { zValidator } from '@hono/zod-validator';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
+import { z } from 'zod';
 import { authMiddleware, csrfMiddleware, type Env } from '../../core/auth/middleware';
 import { db } from '../../core/db';
 import { uploadSchema, uuidParamSchema } from '../../core/lib/validation';
@@ -64,17 +65,49 @@ api.post('/upload', csrfMiddleware, zValidator('form', uploadSchema), async (c) 
 });
 
 /**
- * Listet alle Uploads des aktuellen Nutzers auf.
- * @route GET /api/storage/list
+ * Listet alle Uploads des aktuellen Nutzers auf (Paginierung).
+ * @route GET /api/storage/list?page=1&limit=20
  */
-api.get('/list', async (c) => {
-  const user = c.get('user');
-  const items = await db.query.uploads.findMany({
-    where: eq(uploads.userId, user.id),
-    orderBy: (u, { desc }) => [desc(u.createdAt)],
-  });
-  return c.json({ success: true, data: items });
-});
+api.get(
+  '/list',
+  zValidator(
+    'query',
+    z.object({
+      page: z.coerce.number().min(1).default(1),
+      limit: z.coerce.number().min(1).max(100).default(20),
+    }),
+  ),
+  async (c) => {
+    const user = c.get('user');
+    const { page, limit } = c.req.valid('query');
+    const offset = (page - 1) * limit;
+
+    // 1. Gesamtanzahl ermitteln
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(uploads)
+      .where(eq(uploads.userId, user.id));
+
+    // 2. Daten für die Seite laden
+    const items = await db.query.uploads.findMany({
+      where: eq(uploads.userId, user.id),
+      orderBy: (u, { desc }) => [desc(u.createdAt)],
+      limit,
+      offset,
+    });
+
+    return c.json({
+      success: true,
+      data: items,
+      pagination: {
+        page,
+        limit,
+        total: count,
+        totalPages: Math.ceil(count / limit),
+      },
+    });
+  },
+);
 
 /**
  * Download einer Datei via Streaming.
