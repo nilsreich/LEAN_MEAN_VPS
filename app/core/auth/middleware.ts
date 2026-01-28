@@ -21,7 +21,7 @@
  * ============================================================================
  */
 
-import { eq, sql } from 'drizzle-orm';
+import { eq, lt } from 'drizzle-orm';
 import type { Context, Next } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { db } from '../db';
@@ -61,10 +61,10 @@ export async function createSession(c: Context, user: { id: number; username: st
 
   // Probabilistisches Cleanup (1% Chance)
   // Löscht abgelaufene Sessions, um die DB klein zu halten
-  // Nutzt json_extract für den Zugriff auf den JSON-Blob
+  // Nutzt jetzt die 'expiresAt' Spalte für Index-Scan statt Full Table Scan
   if (Math.random() < 0.01) {
     const now = new Date().toISOString();
-    await db.delete(sessions).where(sql`json_extract(${sessions.value}, '$.expiresAt') < ${now}`);
+    await db.delete(sessions).where(lt(sessions.expiresAt, now));
   }
 
   const sessionData: SessionData = {
@@ -78,6 +78,7 @@ export async function createSession(c: Context, user: { id: number; username: st
   await db.insert(sessions).values({
     key: sessionId,
     value: sessionData,
+    expiresAt: sessionData.expiresAt,
   });
 
   setCookie(c, SESSION_COOKIE, sessionId, {

@@ -90,16 +90,33 @@ export async function getDb(): Promise<DbType> {
     mkdirSync('data', { recursive: true });
   }
 
-  const client = createClient({ url: 'file:data/sqlite.db' });
+  const dbUrl = process.env.DB_FILENAME ? `file:${process.env.DB_FILENAME}` : 'file:data/sqlite.db';
+  const client = createClient({ url: dbUrl });
 
   // Optimierung: 'sessions' Tabelle als reiner Key-Value Store ohne ROWID
   // Dies muss manuell geschehen, da Drizzle dies (noch) nicht nativ unterstützt.
   try {
+    // Migration: Falls Tabelle existiert aber die Spalte fehlt (Alt-Daten), löschen wir sie hart.
+    const tableInfo = await client.execute('PRAGMA table_info(sessions)');
+    // biome-ignore lint/suspicious/noExplicitAny: Raw DB check
+    const hasExpiresAt = tableInfo.rows.some((r: any) => r[1] === 'expires_at');
+
+    if (tableInfo.rows.length > 0 && !hasExpiresAt) {
+      console.warn('[DB] Upgrading sessions table schema (dropping old table)...');
+      await client.execute('DROP TABLE sessions');
+    }
+
     await client.execute(`
       CREATE TABLE IF NOT EXISTS sessions (
         key TEXT PRIMARY KEY,
-        value BLOB
+        value BLOB,
+        expires_at TEXT NOT NULL
       ) WITHOUT ROWID;
+    `);
+
+    // Performance-Index für Bulk-Cleanup
+    await client.execute(`
+      CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
     `);
   } catch (e) {
     console.error('[DB] Failed to ensure KV optimizations:', e);
@@ -117,7 +134,10 @@ export const db = new Proxy({} as DbType, {
       if (!isBunRuntime) return createBuildProxy()[prop as keyof DbType];
 
       // Lazy Init für Runtime (ohne Async Setup - dieses sollte via getDb() beim Start erfolgen)
-      const client = createClient({ url: 'file:data/sqlite.db' });
+      const dbUrl = process.env.DB_FILENAME
+        ? `file:${process.env.DB_FILENAME}`
+        : 'file:data/sqlite.db';
+      const client = createClient({ url: dbUrl });
       dbInstance = drizzle(client, { schema });
     }
     return dbInstance[prop as keyof DbType];

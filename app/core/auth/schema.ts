@@ -25,4 +25,5 @@ export interface SessionData {
 export const sessions = sqliteTable('sessions', {
   key: text('key').primaryKey(),
   value: text('value', { mode: 'json' }).$type<SessionData>().notNull(),
+  expiresAt: text('expires_at').notNull(),
 });
